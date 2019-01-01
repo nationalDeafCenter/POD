@@ -4,8 +4,8 @@ library(lme4)
 library(lmerTest)
 source('cleanData.r')
 
-big3 <- dat$demo46%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
-naSchool <- dat$demo46%in%c("#N/A","")
+big3 <- dat$What.school.or.training.program.are.you.currently.attending.%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
+naSchool <- dat$What.school.or.training.program.are.you.currently.attending.%in%c("#N/A","")
 
 ## datBin <- dat
 ## for(nn in names(survBin)) datBin[[nn]] <- survBin[[nn]]
@@ -43,32 +43,32 @@ summ <- list()
 resp <- list()
 cont <- list()
 
-
-
+type <- c(type,rep('demo',ncol(dat)-length(type)))
 for(cc in cats){
-  summ[[cc]] <- apply(dat[,grep(cc,names(dat))],1,
-    function(x) mean(x=='Extremely likely'|x=='Likely',na.rm=TRUE))
-  cont[[cc]] <- rowMeans(surv[,grep(cc,names(surv))],na.rm=TRUE)
+    summ[[cc]] <- apply(dat[,type==cc],1,
+      function(x) mean(x=='Extremely likely'|x=='Likely',na.rm=TRUE))
+    cont[[cc]] <- rowMeans(surv[,type==cc],na.rm=TRUE)
   for(i in 1:4)
-    resp[[paste0(cc,'.',levsAb[i])]] <- apply(dat[,grep(cc,names(dat))],1,
-      function(x) mean(x==levs[i],na.rm=TRUE))
+      resp[[paste0(cc,'.',levsAb[i])]] <- apply(dat[,type==cc],1,
+                                                function(x) mean(x==levs[i],na.rm=TRUE))
 }
+
 
 cont <- as.data.frame(cont)
 summ <- as.data.frame(summ)
 resp <- as.data.frame(resp)
 
-dat$demo68[dat$demo68=='#N/A'] <- NA
-intSat <- quantile(dat$demo69,c(.33,.66),na.rm=TRUE)
+dat$Accrediation[dat$Accrediation=='#N/A'] <- NA
+intSat <- quantile(dat$Interpreter.Saturation,c(.33,.66),na.rm=TRUE)
 ## instead do 0-50, 51-125, 126+
-dat[['Interpreter Saturation']] <- cut(dat$demo69,c(-1,50,125,Inf),labels=c('low (0-50)','med (51-125)','high (126+)'),ordered=TRUE)
+dat[['Interpreter Saturation']] <- cut(dat$Interpreter.Saturation,c(-1,50,125,Inf),labels=c('low (0-50)','med (51-125)','high (126+)'),ordered=TRUE)
 
-preferredLanguageVarbs <-
-    gsub(
-        'What  is your | in the following settings at school or in your training program',
-        '',
-        rownames(varInf)[grep('preferred language',varInf$desc)]
-        )
+preferredLanguageVarbs <- grep('Pref.',names(dat),fixed=TRUE,value=TRUE)
+    ## gsub(
+    ##     'What  is your | in the following settings at school or in your training program',
+    ##     '',
+    ##     rownames(varInf)[grep('preferred language',varInf$V3)]
+    ##     )
 for(vvv in preferredLanguageVarbs)
     dat[[vvv]] <- factor(
         dat[[vvv]],
@@ -76,8 +76,8 @@ for(vvv in preferredLanguageVarbs)
         )
 
 
-ddd <- dat[,c(1,(max(grep('demo',names(dat)))+1):ncol(dat))] ## demographic variables I've messed with
-ddd$age <- as.numeric(dat$demo4) ## continuous
+ddd <- dat[,c(1,(max(grep('DA[0-9]+',names(dat)))+1):ncol(dat))] ## demographic variables I've messed with
+ddd$age <- as.numeric(dat$Age) ## continuous
 
 
 regDat <- bind_cols(cont,ddd)
@@ -101,11 +101,11 @@ accrs <- rowSums(accomodations[,-1])
 for(i in 2:ncol(accomodations))
   accomodations[accrs==0,i] <- NA
 
-regDat <- left_join(regDat,select(accomodations,-`Assistive Listening Device`,-`Other`))
+regDat <- left_join(regDat,select(accomodations,-AssistiveListeningDevice,-`Other`))
 
 ### deal with NAs
 nad <- select(regDat,deafDisabled,age,gender,`Interpreter Saturation`,white,deafHS,deafHSprog,Interpreters,
-  `Speech-to-Text`,`Note taking`,`Extended Test time`)
+  `Speech-to-Text`,Notetaking,ExtendedTesttime)
 nad[nad=='NA'] <- NA
 nnn <- apply(nad,1,function(x) sum(is.na(x)))
 table(nnn)
@@ -218,7 +218,7 @@ mod2a <- lmer(rating~(1|id)+(age|scale)+age,data=long)
 mod3 <- lmer(rating~(1|id)+(1|scale)+white,data=long)
 mod3b <- lmer(rating~(1|id)+(white|scale)+white,data=long)
 
-mod4 <-
+#mod4 <-
 
   ## c(
       ##  'ruralUrban',

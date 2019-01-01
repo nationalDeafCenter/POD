@@ -108,7 +108,7 @@ for(i in 1:ncol(dis)) dis[,i] <- as.numeric(!is.na(dis[,i]))
 
 
 dat$Disability <- apply(select(dis,-Hearing),1,
-                       function(x) ifelse(sum(x)==0,'none (i.e. deaf non-disabled)',
+                       function(x) ifelse(sum(x)==0,'none (i.e. deaf non-disabled, excl. NAs)',
                                           ifelse(sum(x)>1,'Multi',names(x)[which(x==1)])))
 ttt <- table(dat$Disability)
 dat$Disability[dat$Disability%in%c(names(ttt)[ttt<5],'A disability not listed')] <- 'Other'

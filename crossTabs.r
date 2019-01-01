@@ -173,7 +173,7 @@ addVarbSimp <- function(varb){
 
     newTab <- add_row(newTab,
                          Table=paste0(varb,#ifelse(varb%in%rownames(varInf),varInf[varb,'V3'],varb),
-                             ' (',sum(is.na(vvv)),' NAs)'))
+                             ' (',sum(is.na(vvv)),' NAs = ',round(mean(is.na(vvv))*100),'%)'))
 
     levs <- if(is.factor(vvv)) levels(vvv) else unique(na.omit(vvv))
 
@@ -226,10 +226,18 @@ for(i in 1:ncol(acc))
                                    as.list(colMeans(summ[acc[[i]]==1,],na.rm=TRUE)))))
 
 if(length(type)<ncol(dat)) type <- c(type,rep('demo',ncol(dat)-length(type)))
-summ3 <- as.data.frame(sapply(cats,function(cc)
-    apply(dat3[,type==cc],1,
-                         function(x) mean(x=='Extremely likely'|x=='Likely',na.rm=TRUE)),
-                              simplify=FALSE))
+summ3 <- as.data.frame(
+  sapply(
+    cats,
+    function(cc)
+      apply(
+        dat3[,type==cc],
+        1,
+        function(x) mean(x=='Extremely likely'|x=='Likely',na.rm=TRUE)
+      ),
+    simplify=FALSE
+  )
+)
 
 crossTabs <- add_row(crossTabs,Table='Big 3 Schools')
 crossTabs <- do.call('add_row',
@@ -286,7 +294,7 @@ for(i in 1:(max(rowSums(acc))-1)){
   rownames(accCTn)[nrow(accCTn)] <- paste0('atLeast',i,'addnlAcc')
 }
 
-if(only!='both'){
+if(only=='both'){
   write.csv(accCTp,'accCTp.csv')
   write.csv(accCTn,'accCTn.csv')
 }
