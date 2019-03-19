@@ -1,52 +1,3 @@
-dat <- read.csv('POD.csv')
-dat$X <- NULL
-names(dat) <- tolower(names(dat))
-dat <- subset(dat,id!='')
-
-
-nnn <- strsplit(names(dat),'.',fixed=TRUE)
-nnn <- c(nnn[[1]],sapply(nnn[-1],function(x) ifelse(length(x)==1,paste0(x[1],1),paste0(x[1],as.numeric(x[2])+1))))
-
-names(dat) <- nnn
-
-
-varInf <- read.csv('PODinfo.csv',header=FALSE)
-varInf <- subset(varInf,V2!='')
-varInf$V1 <- nnn
-
-names(varInf) <- c('name','category','desc')
-
-### doubled descriptions
-varInf$desc <- vapply(strsplit(as.character(varInf$desc),'\\.[A-Z]'),function(x) x[1],'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'What'),function(x) ifelse(length(x)==1,x[1],paste('What',x[2])),'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'\\)[A-Z]'),function(x) x[1],'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'\\?[A-Z]'),function(x) x[1],'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'Which'),function(x) ifelse(length(x)==1,x[1],paste('Which',x[2])),'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'How'),function(x) ifelse(length(x)==1,x[1],paste('How',x[2])),'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'I identify'),function(x) ifelse(length(x)==1,x[1],paste('I identify',x[2])),'a')
-
-
-surv <- dat[,-grep('pre|demo',names(dat))]
-surv[surv=='0'] <- NA
-surv[surv==''] <- NA
-
-allmiss <- apply(surv,1,function(x) all(is.na(x[-1])))
-
-surv <- surv[!allmiss,]
-dat <- dat[!allmiss,]
-
-levs <- c(`Not Likely`=1,`Somewhat Likely`=2,`Likely`=3,`Extremely likely`=4)
-
-survNum <- NULL
-for(i in 2:ncol(surv))
-    survNum <- cbind(survNum,
-                     levs[as.character(surv[,i])])
-
-survNum <- as.data.frame(survNum)
-survNum <- cbind(surv$id,survNum)
-names(survNum) <- names(surv)
-surv <- survNum
-
 ### try cfa
 library(lavaan)
 
@@ -82,12 +33,18 @@ cfa2 <- '
  phys =~ phys1+phys2+phys3+phys4+phys5+phys6
  serv =~ serv1+serv2+serv3+serv4+serv5+serv6
  scap =~ scap1+scap2+scap4+scap5+scap6+scap7+scap8+scap9+scap10
- tech ~~ atti+comm+phys+serv+scap
- atti ~~ comm+phys+serv+scap
- comm ~~ phys+serv+scap
- phys ~~ serv+scap
- serv ~~ scap
 '
+
+cfa2.1 <- '
+ tech =~ tech1+tech2+tech3+tech4
+ atti =~ atti1+atti2+atti3+atti4+atti5+atti6+scap3
+ comm =~ comm1+comm2+comm3+comm4+comm5+comm6
+ phys =~ phys1+phys2+phys3+phys4+phys5+phys6
+ serv =~ serv1+serv2+serv3+serv4+serv5+serv6+scap3
+ scap =~ scap1+scap2+scap3+scap4+scap5+scap6+scap7+scap8+scap9+scap10
+ scap2~~scap3
+'
+
 summary(fit2 <- cfa(cfa2,surv,missing='ML'),fit=TRUE)
 
 sink('CFA-NoScap3-fullData.txt')
@@ -113,6 +70,9 @@ sink()
 summary(fit4.1 <- cfa(cfa2,subset(surv,!big3),missing='ML'),fit=TRUE)
 mi4.1 <- modindices(fit4.1)
 head(mi4.1[order(mi4.1$mi,decreasing=TRUE),])
+
+summary(fit4.2 <- cfa(cfa2.1,subset(surv,!big3),missing='ML'),fit=TRUE)
+
 
 sink('CFA-noScap3-noBig3.txt')
 print(summary(fit4.1))
@@ -207,3 +167,6 @@ efa6 <- fa(rho,6)
 ## xtabs(~demo25.2+demo19,dat,addNA=TRUE)
 
 table(dat[,65])
+
+
+
