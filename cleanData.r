@@ -20,6 +20,9 @@ allmiss <- apply(surv,1,function(x) all(is.na(x[-1])))
 surv <- surv[!allmiss,]
 dat <- dat[!allmiss,]
 
+write.csv(dat,'cleanedData.csv',row.names=FALSE)
+
+
 
 ## make into ordered variables with levels 1,2,3,4
 levs <- c(`Not Likely`=1,`Somewhat Likely`=2,`Likely`=3,`Extremely likely`=4)
@@ -33,6 +36,8 @@ survNum <- as.data.frame(survNum)
 survNum <- cbind(surv$id,survNum)
 names(survNum) <- names(surv)
 surv <- survNum
+
+write.csv(surv,'survNumeric.csv',row.names=FALSE)
 
 
 ### variable information (second sheet on spreadsheet)
@@ -52,3 +57,5 @@ varInf$desc <- vapply(strsplit(varInf$desc,'\\?[A-Z]'),function(x) x[1],'a')
 varInf$desc <- vapply(strsplit(varInf$desc,'Which'),function(x) ifelse(length(x)==1,x[1],paste('Which',x[2])),'a')
 varInf$desc <- vapply(strsplit(varInf$desc,'How'),function(x) ifelse(length(x)==1,x[1],paste('How',x[2])),'a')
 varInf$desc <- vapply(strsplit(varInf$desc,'I identify'),function(x) ifelse(length(x)==1,x[1],paste('I identify',x[2])),'a')
+
+write.csv(varInf,'cleanedVarInf.csv',row.names=FALSE)
