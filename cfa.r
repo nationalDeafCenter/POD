@@ -1,6 +1,11 @@
 ### try cfa
 library(lavaan)
 
+dat <- read.csv('cleanedData.csv')
+varInf <- read.csv('cleanedVarInf.csv')
+
+source('cleanData.r')
+
 cfa1 <- '\n'
 for(ccc in tolower(unique(varInf$category))){
     if(ccc%in%c('','pre','demo')) next
@@ -9,9 +14,10 @@ for(ccc in tolower(unique(varInf$category))){
 
 for(x in 2:ncol(surv)) surv[,x] <- as.ordered(surv[,x])
 
-summary(fit1 <- cfa(cfa1,surv,missing='ML'),fit=TRUE)
-
 meas <- c('pvalue','baseline.pvalue','cfi','tli','rmsea','rmsea.ci.lower','rmsea.ci.upper')
+
+round(fitMeasures(fit1 <- cfa(cfa1,surv,missing='ML'))[meas],3)
+
 inds <- data.frame(modelNum=1,rbind(fitMeasures(fit1)[meas]))
 inds$model <- "full"
 inds$sample <- "full"
@@ -45,7 +51,7 @@ cfa2.1 <- '
  scap2~~scap3
 '
 
-summary(fit2 <- cfa(cfa2,surv,missing='ML'),fit=TRUE)
+round(fitMeasures(fit2 <- cfa(cfa2,surv,missing='ML'))[meas],3)
 
 sink('CFA-NoScap3-fullData.txt')
 print(summary(fit2,fit=TRUE))
@@ -57,7 +63,7 @@ inds <- rbind(inds,data.frame(modelNum=2,rbind(fitMeasures(fit2)[meas]),model='-
 surv$big3 <- dat$demo46%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
 surv$naSchool <- dat$demo46%in%c("#N/A","")
 
-summary(fit4 <- cfa(cfa1,subset(surv,!big3),missing='ML'),fit=TRUE)
+round(fitMeasures(fit4 <- cfa(cfa1,subset(surv,!big3),missing='ML'))[meas],3)
 mi4 <- modindices(fit4)
 head(mi4[order(mi4$mi,decreasing=TRUE),])
 
@@ -67,12 +73,48 @@ sink('CFA-fullModel-noBig3.txt')
 print(summary(fit4))
 sink()
 
-summary(fit4.1 <- cfa(cfa2,subset(surv,!big3),missing='ML'),fit=TRUE)
+round(fitMeasures(fit4.1 <- cfa(cfa2,subset(surv,!big3),missing='ML'))[meas],3)
 mi4.1 <- modindices(fit4.1)
 head(mi4.1[order(mi4.1$mi,decreasing=TRUE),])
 
-summary(fit4.2 <- cfa(cfa2.1,subset(surv,!big3),missing='ML'),fit=TRUE)
+round(fitMeasures(fit4.2 <- cfa(cfa2.1,subset(surv,!big3),missing='ML'))[meas],3)
 
+
+fff <- cfa(cfa1,subset(survBin,!big3),missing='ML')
+
+sink('cfaBin.txt')
+summary(fff,fit=TRUE)
+sink()
+
+survBinOrd <- survBin
+survBinOrd[,2:39] <- lapply(survBin[,2:39],ordered)
+
+fffOrd <- cfa(cfa1,subset(survBinOrd,!big3),missing='ML')
+
+sink('cfaBinOrd.txt')
+summary(fffOrd,fit=TRUE)
+sink()
+
+## try mirt
+library(mirt)
+survBin2 <- survBin[,2:39]
+mirtMod <- ''
+for(cc in setdiff(tolower(unique(varInf$category)),c('pre','demo')))
+  mirtMod <- paste(mirtMod,cc,'=',paste(grep(cc,names(survBin2)),collapse=','),'\n')
+mirtMod <- paste(mirtMod,'COV=',paste(setdiff(tolower(unique(varInf$category)),c('pre','demo')),collapse='*'),'\n')
+
+
+mirt1 <- mirt(survBin2,mirtMod,method='MCEM')
+
+mirt2 <- mirt(survBin2,mirtMod,method='QMCEM',itemtype='2PL')
+
+mirt3 <- mirt(survBin2,mirtMod,method='QMCEM',itemtype='spline')
+
+bfModel <-  as.numeric(droplevels(varInf$category[!varInf$category%in%c('pre','DEMO')]))
+bifac <- bfactor(survBin2,bfModel,itemtype='2PL')
+
+M2(mirt2,impute=10,QMC=TRUE)
+itemfit(mirt2,impute=10,QMC=TRUE)
 
 sink('CFA-noScap3-noBig3.txt')
 print(summary(fit4.1))
@@ -93,7 +135,7 @@ cfa4 <- '
  phys ~~ serv+scap
  serv ~~ scap
 '
-summary(fit4.3 <- cfa(cfa4,subset(surv,!big3),missing='ML'),fit=TRUE)
+round(fitMeasures(fit4.3 <- cfa(cfa4,subset(surv,!big3),missing='ML'))[meas],3)
 
 inds <- rbind(inds,data.frame(modelNum=4.3,rbind(fitMeasures(fit4.3)[meas]),model='-scap3 -serv4',sample='-big 3'))
 
@@ -101,7 +143,7 @@ sink('CFA-noScap3noServ4-noBig3.txt')
 print(summary(fit4.3))
 sink()
 
-summary(fit5 <- cfa(cfa1,subset(surv,!big3&!naSchool),missing='ML'),fit=TRUE)
+round(fitMeasures(fit5 <- cfa(cfa1,subset(surv,!big3&!naSchool),missing='ML'))[meas],3)
 inds <- rbind(inds,data.frame(modelNum=5,rbind(fitMeasures(fit5)[meas]),model='full',sample='-big 3 -NAs'))
 
 sink('CFA-fullModel-noBig3noSchoolNA.txt')
@@ -119,7 +161,7 @@ cfa5 <- '
  serv =~ serv1+serv2+serv3+serv4+serv5+serv6
  scap =~ scap1+scap2+scap4+scap5+scap6+scap7+scap8+scap9+scap10
 '
-summary(fit5.1 <- cfa(cfa5,subset(surv,!big3&!naSchool),missing='ML'),fit=TRUE)
+round(fitMeasures(fit5.1 <- cfa(cfa5,subset(surv,!big3&!naSchool),missing='ML'))[meas],3)
 inds <- rbind(inds,data.frame(modelNum=5.1,rbind(fitMeasures(fit5.1)[meas]),model='-tech1 - phys1',sample='-big 3 -NAs'))
 
 sink('CFA-noTech1noPhys1-noBig3-noSchoolNA.txt')
