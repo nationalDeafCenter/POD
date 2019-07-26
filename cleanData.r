@@ -24,9 +24,13 @@ dat <- subset(dat,id!='') ## remove NAs
 #names(dat) <- nnn
 
 ## survey responses
-surv <- dat[,-grep('pre|demo',names(dat))]
+surv <- select(dat,id,tech1:scap10)
 surv[surv=='0'] <- NA
 surv[surv==''] <- NA
+
+for(i in 1:ncol(surv)) surv[surv[,i]%in%c('#N/A','NA','#VALUE!'),i] <- NA
+
+
 
 ## remove rows that are completely empty
 allmiss <- apply(surv,1,function(x) all(is.na(x[-1])))
