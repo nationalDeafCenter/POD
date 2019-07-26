@@ -1,10 +1,13 @@
 library(tidyverse)
-varInf <- read.csv('varDesc322.csv')
-dat <- read.csv('POD322.csv',header=FALSE,stringsAsFactors=FALSE)
+library(reshape2)
+#library(plotrix)
+varInf <- read.csv('varDesc725.csv',header=FALSE,stringsAsFactors=FALSE)
+dat <- read.csv('POD Data 22March2019.csv',header=FALSE,stringsAsFactors=FALSE)
 
+varInf$V2[varInf$V2==''] <- 'pre'
 varNames <- character(nrow(varInf))
-for(cc in unique(varInf$type))
-  varNames[varInf$type==cc] <- paste0(cc,seq(sum(varInf$type==cc)))
+for(cc in unique(varInf$V2))
+  varNames[varInf$V2==cc] <- paste0(cc,seq(sum(varInf$V2==cc)))
 
 names(dat) <- tolower(varNames)
 
@@ -31,12 +34,48 @@ allmiss <- apply(surv,1,function(x) all(is.na(x[-1])))
 surv <- surv[!allmiss,]
 dat <- dat[!allmiss,]
 
+for(i in 1:ncol(dat))
+  if(is.character(dat[,i]))
+    dat[,i] <- gsub(' +',' ',dat[,i])
 
 dat[dat==''] <- NA
+dat[dat==' '] <- NA
+
+## NA patterns: do people just stop responding, or do they pick and choose which Qs to respond to?
+
+
+dat%>%
+  mutate(rowNum=1:n())%>%
+  melt('rowNum')%>%
+  mutate(na=factor(is.na(value)))%>%
+  ggplot(aes(variable,rowNum,fill=na))+
+  geom_tile()+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))+
+  scale_y_continuous(trans='reverse')
+
+ggsave('NAplot.pdf')
+
+naPat <- function(x){
+  x[x==''|x==' '] <- NA
+  lastObs <- max(which(!is.na(x)))
+  NAs <- which(is.na(x))
+  nNA <- length(NAs)
+  nAfter <- sum(NAs>lastObs)
+  nBefore <- sum(NAs<lastObs)
+  pAfter <- ifelse(nNA,nAfter/nNA,0)
+  c(nNA=nNA,lastObs=lastObs,nAfter=nAfter,nBefore=nBefore,pAfter=pAfter)
+}
+
+naPattern <- apply(dat,1,naPat)
+
+## it looks like people don't just stop responding
+
+
+
 
 ### make race variable
-race <- dat[,paste0('demo',8:15)]
-names(race) <- sapply(race,function(x) unique(na.omit(x))[1])
+race <- dat[,rownames(varInf)[grep('race/ethnicity',varInf$V3,fixed=TRUE)]]
+names(race) <- sapply(race,function(x) unique(na.omit(x[x!='NA']))[1])
 for(i in 1:ncol(race)) race[,i] <- as.numeric(!is.na(race[,i]))
 
 dat$Ethnicity <- apply(race,1,
@@ -45,8 +84,11 @@ dat$Ethnicity <- apply(race,1,
                                                  names(race)[which(x==1)])))
 
 ### make disability variable
-dis <- dat[,paste0('demo',c(18,20:24))]
-names(dis) <- sapply(dis,function(x) unique(na.omit(x))[1])
+dis <- dat[,#grep('dis',names(dat))]#
+  paste0('demo',c(18,20:24))]
+names(dis) <- #gsub(' | \\(.+\\)','',
+  sapply(dis,function(x) unique(na.omit(x))[1])
+#)
 for(i in 1:ncol(dis)) dis[,i] <- as.numeric(!is.na(dis[,i]))
 
 dat$Disability <- apply(dis,1,
@@ -64,7 +106,7 @@ dat$deafDisabled <- ifelse(dat$Disability=='none','Deaf-Nondisabled','Deaf-Disab
 
 
 ### make HS type variables
-hsTypeV <- rownames(varInf)[grep('type of high school',varInf$desc)]
+hsTypeV <- rownames(varInf)[grep('type of high school',varInf$V3)]
 hsType <- dat[,hsTypeV[-length(hsTypeV)]]
 
 names(hsType) <- sapply(hsType,function(x) unique(na.omit(x))[1])
@@ -75,18 +117,19 @@ dat$HStype <- apply(hsType,1,
                                           ifelse(sum(x)>1,
                                                  'Multi',names(hsType)[which(x==1)])))
 
-mainstream <- rowSums(hsType[,grep('Mainstreamed',names(hsType))])
-deafonly <- rowSums(hsType[,grep('Deaf',names(hsType))])
+dat$mainstream <- rowSums(hsType[,grep('Mainstreamed',names(hsType))])
+dat$deafonly <- rowSums(hsType[,grep('Deaf',names(hsType))])
 
-dat$MainstreamingHS <- ifelse(mainstream>0,
-                              ifelse(deafonly>0,'both','mainstream only'),
-                              ifelse(deafonly>0,'deaf only',
-                                     ifelse(dat$HStype=='NA','NA','other')))
+dat <- within(dat,
+  MainstreamingHS <- ifelse(mainstream>0,
+    ifelse(deafonly>0,'both','mainstream only'),
+    ifelse(deafonly>0,'deaf only',
+      ifelse(dat$HStype=='NA','NA','other'))))
 
 
 
 ### accomodations
-accV <- rownames(varInf)[grep('accommodations do you receive',varInf$desc)]
+accV <- rownames(varInf)[grep('accommodations do you receive',varInf$V3)]
 acc <- dat[,accV[-length(accV)]]
 names(acc) <- sapply(acc,function(x) unique(na.omit(x))[1])
 for(i in 1:ncol(acc)) acc[,i] <- as.numeric(!is.na(acc[,i]))
@@ -100,6 +143,47 @@ write.csv(accomodations,'accomodations.csv',row.names=FALSE)
 for(dd in grep('demo',names(dat)))
     if(is.character(dat[,dd]))
         dat[is.na(dat[,dd]),dd] <- 'NA'
+
+
+## age categories
+dat <- mutate(dat,age=ifelse(demo4=='#VALUE!',NA,
+          ifelse(demo4<23,'19-22',ifelse(demo4<30,'23-29',ifelse(demo4<40,'30-39','40+')))))
+
+## gender
+dat <- mutate(dat,gender=ifelse(demo1=='NA',NA,ifelse(demo1%in%c('Male','Female'),demo1,'Other')))
+
+
+## hs language
+hsLangV <- rownames(varInf)[grep('language of instruction at your high school',varInf$V3)]
+hsLang <- dat[,hsLangV[-length(hsLangV)]]
+hsLang[hsLang=='NA'] <- NA
+names(hsLang) <- sapply(hsLang,function(x) unique(na.omit(x))[1])
+names(hsLang) <- gsub('My classes were taught in ','',names(hsLang))
+names(hsLang) <- gsub(' and I had ','+',names(hsLang))
+for(i in 1:ncol(hsLang)) hsLang[,i] <- as.numeric(!is.na(hsLang[,i]))
+
+dat$hsLang <- NA
+dat$hsLang[rowSums(hsLang)==0] <- NA
+dat$hsLang[rowSums(hsLang)==1] <- names(hsLang)[sapply(which(rowSums(hsLang)==1),function(i) which(hsLang[i,]==1))]
+dat$hsLang[rowSums(hsLang)>1] <- 'Multiple'
+
+dat$hsLang[grep('Another',dat$hsLang)] <- 'English+Other Acc'
+dat$hsLang[grep('provider',dat$hsLang)] <- 'English+Other Acc'
+### write-ins
+## dat$hsLang[grep('Full',dat$hsLang)] <- 'sign language.'
+## dat$hsLang[grep('hear better',dat$hsLang)] <- 'English+no accommodations.'
+## dat$hsLang[grep('Bi-Bi|one asl',dat$hsLang)] <- 'Multiple'
+
+dat <- rename(dat,`HS Class Language`=hsLang)
+
+### preferred language
+prefLangV <- rownames(varInf)[grep('preferred language',varInf$V3)]
+
+for(vv in prefLangV)
+  dat[[vv]] <- ifelse(dat[[vv]]=='NA',NA,
+    ifelse(dat[[vv]]=='ASL','ASL',
+      ifelse(dat[[vv]]=='Spoken English','Spoken English',
+        ifelse(dat[[vv]]=='Written/Text Communication','Written/Text Communication', 'Other'))))
 
 
 write.csv(dat,'cleanedData.csv',row.names=FALSE)
@@ -127,13 +211,13 @@ write.csv(surv,'survNumeric.csv',row.names=FALSE)
 
 
 ### doubled descriptions
-varInf$desc <- vapply(strsplit(as.character(varInf$desc),'\\.[A-Z]'),function(x) x[1],'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'What'),function(x) ifelse(length(x)==1,x[1],paste('What',x[2])),'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'\\)[A-Z]'),function(x) x[1],'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'\\?[A-Z]'),function(x) x[1],'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'Which'),function(x) ifelse(length(x)==1,x[1],paste('Which',x[2])),'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'How'),function(x) ifelse(length(x)==1,x[1],paste('How',x[2])),'a')
-varInf$desc <- vapply(strsplit(varInf$desc,'I identify'),function(x) ifelse(length(x)==1,x[1],paste('I identify',x[2])),'a')
+varInf$V3 <- vapply(strsplit(as.character(varInf$V3),'\\.[A-Z]'),function(x) x[1],'a')
+varInf$V3 <- vapply(strsplit(varInf$V3,'What'),function(x) ifelse(length(x)==1,x[1],paste('What',x[2])),'a')
+varInf$V3 <- vapply(strsplit(varInf$V3,'\\)[A-Z]'),function(x) x[1],'a')
+varInf$V3 <- vapply(strsplit(varInf$V3,'\\?[A-Z]'),function(x) x[1],'a')
+varInf$V3 <- vapply(strsplit(varInf$V3,'Which'),function(x) ifelse(length(x)==1,x[1],paste('Which',x[2])),'a')
+varInf$V3 <- vapply(strsplit(varInf$V3,'How'),function(x) ifelse(length(x)==1,x[1],paste('How',x[2])),'a')
+varInf$V3 <- vapply(strsplit(varInf$V3,'I identify'),function(x) ifelse(length(x)==1,x[1],paste('I identify',x[2])),'a')
 
 write.csv(varInf,'cleanedVarInf.csv',row.names=TRUE)
 
