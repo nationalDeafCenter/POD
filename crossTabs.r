@@ -226,7 +226,7 @@ crossTabs <- add_row(crossTabs,
 ## remotes::install_github("jbryer/ruca")
 
 
-
+write.csv(crossTabs,'crossTabs.csv')
 openxlsx::write.xlsx(crossTabs,'crossTabs.xlsx',row.names=FALSE,col.names=TRUE)
 
 
