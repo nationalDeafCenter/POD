@@ -1,8 +1,8 @@
 ### try cfa
 library(lavaan)
 
-dat <- read.csv('cleanedData.csv')
-varInf <- read.csv('cleanedVarInf.csv')
+#dat <- read.csv('cleanedData.csv')
+#varInf <- read.csv('cleanedVarInf.csv')
 
 source('cleanData.r')
 
@@ -86,10 +86,12 @@ sink('cfaBin.txt')
 summary(fff,fit=TRUE)
 sink()
 
+
+
 survBinOrd <- survBin
 survBinOrd[,2:39] <- lapply(survBin[,2:39],ordered)
 
-fffOrd <- cfa(cfa1,subset(survBinOrd,!big3),missing='ML')
+fffOrd <- cfa(cfa1,subset(survBinOrd,!big3))
 
 sink('cfaBinOrd.txt')
 summary(fffOrd,fit=TRUE)
@@ -110,8 +112,12 @@ mirt2 <- mirt(survBin2,mirtMod,method='QMCEM',itemtype='2PL')
 
 mirt3 <- mirt(survBin2,mirtMod,method='QMCEM',itemtype='spline')
 
-bfModel <-  as.numeric(droplevels(varInf$category[!varInf$category%in%c('pre','DEMO')]))
+#bfModel <-  as.numeric(droplevels(varInf$type[!varInf$type%in%c('pre','DEMO')]))
+bfModel <- names(survBin2)%>%substr(1,4)%>%as.factor()%>%as.numeric()
 bifac <- bfactor(survBin2,bfModel,itemtype='2PL')
+save(bifac,file='bifac.RData')
+
+bifac2 <- bfactor(survBin2,bfModel)
 
 M2(mirt2,impute=10,QMC=TRUE)
 itemfit(mirt2,impute=10,QMC=TRUE)
@@ -142,6 +148,10 @@ inds <- rbind(inds,data.frame(modelNum=4.3,rbind(fitMeasures(fit4.3)[meas]),mode
 sink('CFA-noScap3noServ4-noBig3.txt')
 print(summary(fit4.3))
 sink()
+
+
+
+
 
 round(fitMeasures(fit5 <- cfa(cfa1,subset(surv,!big3&!naSchool),missing='ML'))[meas],3)
 inds <- rbind(inds,data.frame(modelNum=5,rbind(fitMeasures(fit5)[meas]),model='full',sample='-big 3 -NAs'))
