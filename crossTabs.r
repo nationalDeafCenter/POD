@@ -173,10 +173,10 @@ crossTabs <- bind_rows(
        'gender',
        'demo26',
        'HS Class Language',
-       'intSatCat',
-       rownames(varInf)[varInf$V3=='Institution Type'],
-       rownames(varInf)[varInf$V3=='College Ranking'],
-       rownames(varInf)[varInf$V3=='Accrediation'],
+#       'intSatCat',
+       na.omit(rownames(varInf)[varInf$V3=='Institution Type']),
+       na.omit(rownames(varInf)[varInf$V3=='College Ranking']),
+       na.omit(rownames(varInf)[varInf$V3=='Accrediation']),
        preferredLanguageVarbs
        ),
       addVarbSimp)

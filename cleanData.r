@@ -88,12 +88,26 @@ dat$Ethnicity <- apply(race,1,
                                                  names(race)[which(x==1)])))
 
 ### make disability variable
-dis <- dat[,#grep('dis',names(dat))]#
-  paste0('demo',c(18,20:24))]
-names(dis) <- #gsub(' | \\(.+\\)','',
-  sapply(dis,function(x) unique(na.omit(x))[1])
+dis0 <- dat[,#grep('dis',names(dat))]#
+  paste0('demo',c(17:24))]
+names(dis0) <- #gsub(' | \\(.+\\)','',
+  sapply(dis0,function(x) unique(na.omit(x))[1])
 #)
-for(i in 1:ncol(dis)) dis[,i] <- as.numeric(!is.na(dis[,i]))
+for(i in 1:ncol(dis0)) dis0[,i] <- as.numeric(!is.na(dis0[,i]))
+
+dis1 <- dat[,grep('dis',names(dat))]
+names(dis1) <- #gsub(' | \\(.+\\)','',
+  sapply(dis1,function(x) unique(na.omit(x))[1])
+#)
+for(i in 1:ncol(dis1)) dis1[,i] <- as.numeric(!is.na(dis1[,i]))
+
+ccc <- crossprod(as.matrix(dis0),as.matrix(dis1))
+ccc <- cbind(ccc,Total=colSums(dis0))
+ccc <- rbind(ccc,Total=c(colSums(dis1),NA))
+openxlsx::write.xlsx(ccc,'oldDisabilityVsNewDisability2.xlsx',row.names=TRUE,colnames=TRUE)
+
+
+dis <- dis0[,-c(1,3)]
 
 dat$Disability <- apply(dis,1,
                        function(x) ifelse(sum(x)==0,'none',
