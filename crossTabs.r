@@ -10,7 +10,7 @@ only <-
 if(!exists('only')) only <- 'both'
 
 if(only%in%c('old','new')){
-  oldOldDat <- read_csv('POD OldData 22March2019.csv',header=FALSE,stringsAsFactors=FALSE)\
+  oldDat <- read.csv('POD Data 22March2019.csv',header=FALSE,stringsAsFactors=FALSE)
   varInfOld <- read.csv('varDesc725.csv',header=FALSE,stringsAsFactors=FALSE)
   varInfOld$V2[varInfOld$V2==''] <- 'pre'
   varNames <- character(nrow(varInfOld))
@@ -257,7 +257,7 @@ crossTabs <- add_row(crossTabs,
 
 suffix <- if(only!='both') only else ''
 write.csv(crossTabs,paste0('crossTabs',suffix,'.csv'))
-openxlsx::write.xlsx(crossTabs,oaste0('crossTabs',suffix,'.xlsx'),row.names=FALSE,col.names=TRUE)
+openxlsx::write.xlsx(crossTabs,paste0('crossTabs',suffix,'.xlsx'),row.names=FALSE,col.names=TRUE)
 
 
 #################### accomodations cross tab
