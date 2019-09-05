@@ -3,6 +3,39 @@ source('cleanData.r')
 library(ruca)
 #library(rgeolocate)
 
+only <-
+  ## 'both'
+   'new'
+  ## 'old'
+if(!exists('only')) only <- 'both'
+
+if(only%in%c('old','new')){
+  oldOldDat <- read_csv('POD OldData 22March2019.csv',header=FALSE,stringsAsFactors=FALSE)\
+  varInfOld <- read.csv('varDesc725.csv',header=FALSE,stringsAsFactors=FALSE)
+  varInfOld$V2[varInfOld$V2==''] <- 'pre'
+  varNames <- character(nrow(varInfOld))
+  for(cc in unique(varInfOld$V2))
+    varNames[varInfOld$V2==cc] <- paste0(cc,seq(sum(varInfOld$V2==cc)))
+
+  names(oldDat) <- tolower(varNames)
+  names(oldDat)[1] <- 'id'
+  oldDat <- subset(oldDat,id!='') ## remove NAs
+  surv <- select(oldDat,id,tech1:scap10)
+  surv[surv=='0'] <- NA
+  surv[surv==''] <- NA
+
+  for(i in 1:ncol(surv)) surv[surv[,i]%in%c('#N/A','NA','#VALUE!'),i] <- NA
+  ## remove rows that are completely empty
+  allmiss <- apply(surv,1,function(x) all(is.na(x[-1])))
+  oldIDs <- oldDat$id[!allmiss]
+  if(only=='old') dat <- dat[dat$id%in%oldIDs,]
+  else if(only=='new') dat <- dat[!dat$id%in%oldIDs,]
+}
+
+
+
+
+
 big3 <- dat$What.school.or.training.program.are.you.currently.attending.%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
 naSchool <- dat$What.school.or.training.program.are.you.currently.attending.%in%c("#N/A","")
 
@@ -222,9 +255,9 @@ crossTabs <- add_row(crossTabs,
 ## install.packages("remotes")
 ## remotes::install_github("jbryer/ruca")
 
-
-write.csv(crossTabs,'crossTabs.csv')
-openxlsx::write.xlsx(crossTabs,'crossTabs.xlsx',row.names=FALSE,col.names=TRUE)
+suffix <- if(only!='both') only else ''
+write.csv(crossTabs,paste0('crossTabs',suffix,'.csv'))
+openxlsx::write.xlsx(crossTabs,oaste0('crossTabs',suffix,'.xlsx'),row.names=FALSE,col.names=TRUE)
 
 
 #################### accomodations cross tab
@@ -251,6 +284,7 @@ for(i in 1:(max(rowSums(acc))-1)){
   rownames(accCTn)[nrow(accCTn)] <- paste0('atLeast',i,'addnlAcc')
 }
 
-
-write.csv(accCTp,'accCTp.csv')
-write.csv(accCTn,'accCTn.csv')
+if(only!='both'){
+  write.csv(accCTp,'accCTp.csv')
+  write.csv(accCTn,'accCTn.csv')
+}
