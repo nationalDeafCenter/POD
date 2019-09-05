@@ -3,8 +3,8 @@ source('cleanData.r')
 library(ruca)
 #library(rgeolocate)
 
-big3 <- dat$demo46%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
-naSchool <- dat$demo46%in%c("#N/A","")
+big3 <- dat$What.school.or.training.program.are.you.currently.attending.%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
+naSchool <- dat$What.school.or.training.program.are.you.currently.attending.%in%c("#N/A","")
 
 ## datBin <- dat
 ## for(nn in names(survBin)) datBin[[nn]] <- survBin[[nn]]
@@ -38,10 +38,10 @@ levsAb <- c('NL','SL','L','EL')
 summ <- list()
 resp <- list()
 for(cc in cats){
-    summ[[cc]] <- apply(dat[,grep(cc,names(dat))],1,
+    summ[[cc]] <- apply(dat[,type==cc],1,
                         function(x) mean(x=='Extremely likely'|x=='Likely',na.rm=TRUE))
   for(i in 1:4)
-      resp[[paste0(cc,'.',levsAb[i])]] <- apply(dat[,grep(cc,names(dat))],1,
+      resp[[paste0(cc,'.',levsAb[i])]] <- apply(dat[,type==cc],1,
                                                 function(x) mean(x==levs[i],na.rm=TRUE))
 }
 
@@ -50,8 +50,8 @@ resp <- as.data.frame(resp)
 
 dat$ruralUrban <-
     dat%>%
-        select(demo70)%>%
-            getruca('demo70')%>%
+        select(Zipcode)%>%
+            getruca('Zipcode')%>%
                 pull(classC)
 
 
@@ -108,17 +108,17 @@ dat$ruralUrban <-
 ## dat$ruralUrbanIP <- location$classC
 
 
-dat$demo68[dat$demo68=='#N/A'] <- NA
-intSat <- quantile(dat$demo69,c(.33,.66),na.rm=TRUE)
+dat$Accrediation[dat$Accrediation=='#N/A'] <- NA
+intSat <- quantile(dat$Interpreter.Saturation,c(.33,.66),na.rm=TRUE)
 ## instead do 0-50, 51-125, 126+
-dat[['Interpreter Saturation']] <- cut(dat$demo69,c(-1,50,125,Inf),labels=c('low (0-50)','med (51-125)','high (126+)'),ordered=TRUE)
+dat[['Interpreter Saturation']] <- cut(dat$Interpreter.Saturation,c(-1,50,125,Inf),labels=c('low (0-50)','med (51-125)','high (126+)'),ordered=TRUE)
 
-preferredLanguageVarbs <-
-    gsub(
-        'What  is your | in the following settings at school or in your training program',
-        '',
-        rownames(varInf)[grep('preferred language',varInf$V3)]
-        )
+preferredLanguageVarbs <- grep('Pref.',names(dat),fixed=TRUE,value=TRUE)
+    ## gsub(
+    ##     'What  is your | in the following settings at school or in your training program',
+    ##     '',
+    ##     rownames(varInf)[grep('preferred language',varInf$V3)]
+    ##     )
 for(vvv in preferredLanguageVarbs)
     dat[[vvv]] <- factor(
         dat[[vvv]],
@@ -137,7 +137,7 @@ addVarbSimp <- function(varb){
     vvv[vvv=='#N/A'] <- NA
 
     newTab <- add_row(newTab,
-                         Table=paste0(ifelse(varb%in%rownames(varInf),varInf[varb,'V3'],varb),
+                         Table=paste0(varb,#ifelse(varb%in%rownames(varInf),varInf[varb,'V3'],varb),
                              ' (',sum(is.na(vvv)),' NAs)'))
 
     levs <- if(is.factor(vvv)) levels(vvv) else unique(na.omit(vvv))
@@ -158,25 +158,22 @@ crossTabs <- bind_rows(
       c(
        'ruralUrban',
        #       'ruralUrbanIP',
-#       'demo66',
+       'Institution.Type',
        'Interpreter Saturation',
-#       'demo68',
-       'demo67',
-       'demo65',
+       'Accrediation',
+       'Community.College',
+       'Institution.Size',
        'Ethnicity',
        'Disability',
        'deafDisabled',
        'HStype',
        'MainstreamingHS',
        'age',
-       'demo5',
+       'Were.you.born.in.the.United.States.',
        'gender',
-       'demo26',
+       'Did.you.complete.high.school.',
        'HS Class Language',
-#       'intSatCat',
-       na.omit(rownames(varInf)[varInf$V3=='Institution Type']),
-       na.omit(rownames(varInf)[varInf$V3=='College Ranking']),
-       na.omit(rownames(varInf)[varInf$V3=='Accrediation']),
+       'intSatCat',
        preferredLanguageVarbs
        ),
       addVarbSimp)
@@ -189,13 +186,13 @@ for(i in 1:ncol(acc))
     crossTabs <- do.call('add_row',
                           append(list(.data=crossTabs),
                                  c(Subgroup=names(acc)[i],
-                                   n=sum(acc[,i],na.rm=TRUE),
-                                   `%`=round(mean(acc[,i],na.rm=TRUE)*100),
-                                   as.list(colMeans(summ[acc[,i]==1,],na.rm=TRUE)))))
+                                   n=sum(acc[[i]],na.rm=TRUE),
+                                   `%`=round(mean(acc[[i]],na.rm=TRUE)*100),
+                                   as.list(colMeans(summ[acc[[i]]==1,],na.rm=TRUE)))))
 
 
 summ3 <- as.data.frame(sapply(cats,function(cc)
-    apply(dat3[,grep(cc,names(dat))],1,
+    apply(dat3[,type==cc],1,
                          function(x) mean(x=='Extremely likely'|x=='Likely',na.rm=TRUE)),
                               simplify=FALSE))
 
@@ -248,10 +245,10 @@ accCTp <- rbind(nReceiving=diag(accCTn),accCTp)
 accCTn <- rbind(nReceiving=diag(accCTn),accCTn)
 
 for(i in 1:(max(rowSums(acc))-1)){
-  accCTp <- rbind(accCTp,map_dbl(1:ncol(acc),~mean(rowSums(acc[acc[,.]==1,-.])==i)))
-  rownames(accCTp)[nrow(accCTp)] <- paste0('prop.',i,'addnlAcc')
-  accCTn <- rbind(accCTn,map_dbl(1:ncol(acc),~sum(rowSums(acc[acc[,.]==1,-.])==i)))
-  rownames(accCTn)[nrow(accCTn)] <- paste0('n',i,'addnlAcc')
+  accCTp <- rbind(accCTp,map_dbl(1:ncol(acc),~mean(rowSums(acc[acc[,.]==1,-.])>=i)))
+  rownames(accCTp)[nrow(accCTp)] <- paste0('prop.AtLeast',i,'addnlAcc')
+  accCTn <- rbind(accCTn,map_dbl(1:ncol(acc),~sum(rowSums(acc[acc[,.]==1,-.])>=i)))
+  rownames(accCTn)[nrow(accCTn)] <- paste0('atLeast',i,'addnlAcc')
 }
 
 

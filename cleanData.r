@@ -217,6 +217,8 @@ for(vv in prefLangV)
       ifelse(dat[[vv]]=='Spoken English','Spoken English',
         ifelse(dat[[vv]]=='Written/Text Communication','Written/Text Communication', 'Other'))))
 
+prefLang <- strsplit(names(dat)[prefLangV],'\\.{2,3}')
+names(dat)[prefLangV] <- paste0('Pref.',map_chr(prefLang,~paste0(.[1],'.',.[3])))
 
 write.csv(dat,'cleanedData.csv',row.names=FALSE)
 
