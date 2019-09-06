@@ -4,8 +4,8 @@ library(ruca)
 #library(rgeolocate)
 
 only <-
-  ## 'both'
-   'new'
+   'both'
+  ## 'new'
   ## 'old'
 if(!exists('only')) only <- 'both'
 
@@ -70,6 +70,7 @@ levsAb <- c('NL','SL','L','EL')
 
 summ <- list()
 resp <- list()
+type <- c(type,rep('demo',ncol(dat)-length(type)))
 for(cc in cats){
     summ[[cc]] <- apply(dat[,type==cc],1,
                         function(x) mean(x=='Extremely likely'|x=='Likely',na.rm=TRUE))
@@ -189,9 +190,9 @@ crossTabs <- bind_rows(
   crossTabs,
   map_dfr(
       c(
-       'ruralUrban',
+       #'ruralUrban',
        #       'ruralUrbanIP',
-       'Institution.Type',
+       #'Institution.Type',
        'Interpreter Saturation',
        'Accrediation',
        'Community.College',
@@ -206,7 +207,7 @@ crossTabs <- bind_rows(
        'gender',
        'Did.you.complete.high.school.',
        'HS Class Language',
-       'intSatCat',
+       #'intSatCat',
        preferredLanguageVarbs
        ),
       addVarbSimp)
@@ -223,7 +224,7 @@ for(i in 1:ncol(acc))
                                    `%`=round(mean(acc[[i]],na.rm=TRUE)*100),
                                    as.list(colMeans(summ[acc[[i]]==1,],na.rm=TRUE)))))
 
-
+if(length(type)<ncol(dat)) type <- c(type,rep('demo',ncol(dat)-length(type)))
 summ3 <- as.data.frame(sapply(cats,function(cc)
     apply(dat3[,type==cc],1,
                          function(x) mean(x=='Extremely likely'|x=='Likely',na.rm=TRUE)),
