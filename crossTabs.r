@@ -4,9 +4,10 @@ library(ruca)
 #library(rgeolocate)
 
 only <-
-  ## 'both'
+   'both'
   ## 'new'
-  'old'
+  ## 'old'
+
 if(!exists('only')) only <- 'both'
 
 if(only%in%c('old','new')){
