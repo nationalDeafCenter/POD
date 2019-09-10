@@ -36,7 +36,17 @@ stopifnot(
 )
 
 ## remove rows that are completely empty
+#dat[dat==''] <- NA
 allmiss <- apply(surv,1,function(x) all(is.na(x[-1])))
+
+missingConsent <- dat[dat$Consent==''&!allmiss,c(1,which(names(dat)=='Consent'),which(type%in%cats))]
+rownames(missingConsent) <- as.character(as.numeric(rownames(missingConsent))+2)
+write.csv(
+  missingConsent,
+  'missingConsent.csv')
+
+
+cat('----------------------------\nDropping ',sum(allmiss),' rows all NA\n-------------------------------\n')
 
 surv <- surv[!allmiss,]
 dat <- dat[!allmiss,]
@@ -223,6 +233,26 @@ names(dat)[prefLangV] <- paste0('Pref.',map_chr(prefLang,~paste0(.[1],'.',.[3]))
 
 write.csv(dat,'cleanedData.csv',row.names=FALSE)
 
+
+### print summary. want factors instead of character so that it prints (some) levels
+dat2 <- dat
+dat2[,sapply(dat2,is.character)] <- lapply(dat2[,sapply(dat2,is.character)],as.factor)
+
+sink('fullSummary.txt')
+print(summary(dat2))
+sink()
+
+big3 <- dat$What.school.or.training.program.are.you.currently.attending.%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
+
+sink('big3Summary.txt')
+print(summary(dat2[big3,]))
+sink()
+
+sink('noBig3Summary.txt')
+print(summary(dat2[!big3,]))
+sink()
+
+rm(dat2)
 
 
 ## make into ordered variables with levels 1,2,3,4
