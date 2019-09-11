@@ -185,16 +185,26 @@ varbs <- c('deafDisabled',#'InterpreterSaturation',
     'deafHS+deafHSprog',
     'Interpreters+SpeechtoText+Notetaking+ExtendedTesttime')
 
-transMIdat <- function(impDat)
-  map(seq(impDat$m),
+transMIdat <- function(impDat,regDat){
+  tran1 <- function(imp1){
+    long <- gather(imp1,"scale","rating",tech:scap)
+    names(long) <- gsub(' |-','',names(long))
+    long$`age/10` <- long$age/10
+    long$InterpreterSaturation <- factor(long$InterpreterSaturation,ordered=FALSE,levels=c("low (0-50)",   "med (51-125)", "high (126+)" ))
+    long
+  }
+  out <- map(seq(impDat$m),
     function(mm){
       imp1 <- complete(impDat,mm)
-      long <- gather(imp1,"scale","rating",tech:scap)
-      names(long) <- gsub(' |-','',names(long))
-      long$`age/10` <- long$age/10
-      long$InterpreterSaturation <- factor(long$InterpreterSaturation,ordered=FALSE,levels=c("low (0-50)",   "med (51-125)", "high (126+)" ))
-      long
+      tran1(imp1)
     })
+  if(!missing(regDat)){
+    out2 <- list(tran1(regDat))
+    for(i in 1:length(out)) out2[[i+1]] <- out[[i]]
+    out <- out2
+  }
+  out
+}
 
 
 
@@ -242,10 +252,41 @@ mi <- function(varbs,impDat,subst=NULL){
 }
 
 
+modLessFull <- lmer(rating~(1|id)+deafDisabled+age+white+deafHS+deafHSprog+Interpreters+SpeechtoText+Notetaking+ExtendedTesttime+
+  (age+white|scale),
+   data=long)
+
+
+anovas <-
+  map(
+    res,
+    ~if('components'%in%names(attributes(.))) attr(.,'components')[[1]]$anova else attr(.,'anova')
+  )
+map(anovas,~c(which.min(.[['AIC']]),which.min(.[['BIC']]),.[['Pr(>Chisq)']][2]))
+
+
+summary(modSelect2 <- step(modLessFull))
+
 
 res <- mi(varbs,impDat)
-
 intSat <- mi('InterpreterSaturation',impDat,subst="Interpreters==1")
+res$intSat <- intSat[[1]]
+
+mods <- map(res,~if('components'%in%names(attributes(.))) attr(.,'components')[[1]]$models$tp else attr(.,'models')$tp)
+coefs <- map(res,~.$Estimate)
+ses <- map(res,~.[['Std. Error']])
+pvals <- map(res,~.[['Pr(>|t|)']])
+
+names(mods) <- NULL
+
+mods[[length(mods)+1]] <- mlf
+coefs[[length(coefs)+1]] <- fixef(mlf)
+ses[[length(ses)+1]] <- summary(mlf)$coef[,2]
+pvals[[length(pvals)+1]] <- 2*pnorm(-abs(summary(mlf)$coef[,3]))
+
+
+screenreg(mods,override.coef=coefs,override.se=ses,override.pvalues=pvals)
+
 
 
 
@@ -271,12 +312,17 @@ intSat <- mi('InterpreterSaturation',impDat,subst="Interpreters==1")
 
 
 ## summary(modSelect <- step(modFull))
+modLessFull <- lmer(rating~(1|id)+deafDisabled+age+white+deafHS+deafHSprog+Interpreters+SpeechtoText+Notetaking+ExtendedTesttime+
+  (age+white|scale),
+   data=transMIdat(impDat)[[1]])
 
-## modLessFull <- lmer(rating~(1|id)+deafDisabled+InterpreterSaturation+age+white+deafHS+deafHSprog+Interpreters+SpeechtoText+Notetaking+ExtendedTesttime+
-##  (age+white|scale),
-##   data=long)
+ttt <- transMIdat(impDat,regDat)
+for(i in 0:20) ttt[[i+1]] <- cbind(imp=i,id=1:nrow(ttt[[1]]),ttt[[i+1]])
+ttt <- as.mids(do.call('rbind',ttt))
+mlf <- with(ttt,lmer(rating~(1|id)+deafDisabled+age+white+deafHS+deafHSprog+Interpreters+SpeechtoText+Notetaking+ExtendedTesttime+
+  (age+white|scale)))
 
-## summary(modSelect2 <- step(modLessFull))
+#modSelect2 <- step(modLessFull)
 
 ## summary(selected <- update(modLessFull,rating ~ `age/10` + white + Notetaking + (1 | id) + (white | scale)))
 
