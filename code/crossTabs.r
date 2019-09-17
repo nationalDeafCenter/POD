@@ -1,5 +1,5 @@
 library(tidyverse)
-source('cleanData.r')
+source('code/cleanData.r')
 library(ruca)
 #library(rgeolocate)
 
@@ -11,8 +11,8 @@ only <-
 if(!exists('only')) only <- 'both'
 
 if(only%in%c('old','new')){
-  oldDat <- read.csv('POD Data 22March2019.csv',header=FALSE,stringsAsFactors=FALSE)
-  varInfOld <- read.csv('varDesc725.csv',header=FALSE,stringsAsFactors=FALSE)
+  oldDat <- read.csv('data/POD Data 22March2019.csv',header=FALSE,stringsAsFactors=FALSE)
+  varInfOld <- read.csv('data/varDesc725.csv',header=FALSE,stringsAsFactors=FALSE)
   varInfOld$V2[varInfOld$V2==''] <- 'pre'
   varNames <- character(nrow(varInfOld))
   for(cc in unique(varInfOld$V2))
@@ -147,6 +147,7 @@ dat$Accrediation[dat$Accrediation=='#N/A'] <- NA
 intSat <- quantile(dat$Interpreter.Saturation,c(.33,.66),na.rm=TRUE)
 ## instead do 0-50, 51-125, 126+
 dat[['Interpreter Saturation']] <- cut(dat$Interpreter.Saturation,c(-1,50,125,Inf),labels=c('low (0-50)','med (51-125)','high (126+)'),ordered=TRUE)
+dat[['Interpreter Saturation']][acc$Interpreters!=1] <- NA
 
 preferredLanguageVarbs <- grep('Pref.',names(dat),fixed=TRUE,value=TRUE)
     ## gsub(
@@ -266,8 +267,8 @@ crossTabs <- add_row(crossTabs,
 ## remotes::install_github("jbryer/ruca")
 
 suffix <- if(only!='both') only else ''
-write.csv(crossTabs,paste0('crossTabs',suffix,'.csv'))
-openxlsx::write.xlsx(crossTabs,paste0('crossTabs',suffix,'.xlsx'),row.names=FALSE,col.names=TRUE)
+write.csv(crossTabs,paste0('results/crossTabs',suffix,'.csv'))
+openxlsx::write.xlsx(crossTabs,paste0('results/crossTabs',suffix,'.xlsx'),row.names=FALSE,col.names=TRUE)
 
 
 #################### accomodations cross tab
@@ -295,6 +296,6 @@ for(i in 1:(max(rowSums(acc))-1)){
 }
 
 if(only=='both'){
-  write.csv(accCTp,'accCTp.csv')
-  write.csv(accCTn,'accCTn.csv')
+  write.csv(accCTp,'results/accCTp.csv')
+  write.csv(accCTn,'results/accCTn.csv')
 }

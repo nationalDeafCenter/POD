@@ -1,8 +1,8 @@
 library(tidyverse)
 library(reshape2)
 #library(plotrix)
-varInf <- read.csv('varDesc725.csv',header=FALSE,stringsAsFactors=FALSE)
-dat <- read.csv('POD9-1-19.csv',stringsAsFactors=FALSE,skip=1)
+varInf <- read.csv('data/varDesc725.csv',header=FALSE,stringsAsFactors=FALSE)
+dat <- read.csv('data/POD9-1-19.csv',stringsAsFactors=FALSE,skip=1)
 dat <- dat[,!vapply(dat,function(x) all(is.na(x)),TRUE)]
 
 varInf$V2[varInf$V2==''] <- 'pre'
@@ -43,7 +43,7 @@ missingConsent <- dat[dat$Consent==''&!allmiss,c(1,which(names(dat)=='Consent'),
 rownames(missingConsent) <- as.character(as.numeric(rownames(missingConsent))+2)
 write.csv(
   missingConsent,
-  'missingConsent.csv')
+  'results/missingConsent.csv')
 
 
 cat('----------------------------\nDropping ',sum(allmiss),' rows all NA\n-------------------------------\n')
@@ -72,7 +72,7 @@ dat%>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5))+
   scale_y_continuous(trans='reverse')
 
-ggsave('NAplot.pdf')
+ggsave('graphics/NAplot.pdf')
 
 naPat <- function(x){
   x[x==''|x==' '] <- NA
@@ -171,7 +171,7 @@ for(i in 1:ncol(acc)) acc[,i] <- as.numeric(!is.na(acc[,i]))
 
 accomodations <- cbind(id=dat$id,acc)
 
-write.csv(accomodations,'accomodations.csv',row.names=FALSE)
+write.csv(accomodations,'results/accomodations.csv',row.names=FALSE)
 
 
 for(dd in which(names(dat)=="I.identify.my.gender.as...select.one."):ncol(dat))
@@ -231,7 +231,7 @@ for(vv in prefLangV)
 prefLang <- strsplit(names(dat)[prefLangV],'\\.{2,3}')
 names(dat)[prefLangV] <- paste0('Pref.',map_chr(prefLang,~paste0(.[1],'.',.[3])))
 
-write.csv(dat,'cleanedData.csv',row.names=FALSE)
+write.csv(dat,'data/cleanedData.csv',row.names=FALSE)
 
 
 ### print summary. want factors instead of character so that it prints (some) levels
@@ -268,7 +268,7 @@ survNum <- cbind(surv$id,survNum)
 names(survNum) <- names(surv)
 surv <- survNum
 
-write.csv(surv,'survNumeric.csv',row.names=FALSE)
+write.csv(surv,'data/survNumeric.csv',row.names=FALSE)
 
 
 
