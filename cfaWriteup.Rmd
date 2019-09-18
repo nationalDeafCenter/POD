@@ -1,0 +1,154 @@
+---
+title: "Confirmatory Factor Analysis"
+output: word_document
+---
+
+```{r init,include=FALSE}
+## library(knitr)
+library(tidyverse)
+library(MplusAutomation)
+library(flextable)
+
+opts_chunk$set(cache=FALSE,message=FALSE,error=FALSE,warning=FALSE,echo=FALSE)
+```
+
+```{r data,include=FALSE}
+
+#source('cleanData.r')
+survBin <- read.csv('survBin.csv')
+dat <- read.csv('cleanedData.csv')
+survBin$big3 <- dat$demo46%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
+sb <- survBin%>%filter(!big3)%>%select(-big3,-id)
+#sb <- subset(survBin,!big3,select=-c(big3,id))
+prepareMplusData(sb,'pod.dat')
+```
+
+```{r runModel,eval=FALSE}
+
+cat(
+'TITLE: 2nd order cfa
+DATA: FILE = "pod.dat";
+VARIABLE:
+NAMES = tech1 tech2 tech3 tech4 atti1 atti2 atti3 atti4 atti5 atti6 comm1 comm2
+     comm3 comm4 comm5 comm6 phys1 phys2 phys3 phys4 phys5 phys6 serv1 serv2 serv3
+     serv4 serv5 serv6 scap1 scap2 scap3 scap4 scap5 scap6 scap7 scap8 scap9 scap10;
+
+CATEGORICAL ARE tech1-scap10;
+MISSING=.;
+
+MODEL:
+    tech BY tech1-tech4;
+    atti BY atti1-atti6;
+    comm BY comm1-comm6;
+    phys BY phys1-phys6;
+    serv BY serv1-serv6;
+    scap BY scap1-scap10;
+    gen BY tech-scap;
+
+OUTPUT: TECH1 TECH3 TECH2;
+',file='cfa2ord.inp')
+
+runModels()
+```
+
+```{r readModel,include=FALSE}
+
+fit <- readModels()
+#load('fit.RData')
+
+```
+
+```{r extractParams,include=FALSE}
+res <- fit$parameters$unstandardized
+res2 <- res%>%filter(paramHeader=='GEN.BY')
+
+vcv <- fit$tech3$paramCov#[order2num,order2num]
+order2num <- which(round(sqrt(diag(vcv)),3)==0.177)+(0:4)
+round(sqrt(diag(vcv)[order2num]),3)-res2$se[-1]
+vcv2 <- vcv[order2num,order2num]
+vcv2 <- vcv2%>%rbind(0,.)%>%cbind(0,.)
+
+diff <- matrix(NA,6,6)
+for(i in 2:6) for(j in 1:(i-1)) diff[i,j] <- res2$est[i]-res2$est[j]
+diffSE <- matrix(NA,6,6)
+for(i in 2:6) for(j in 1:(i-1)) diffSE[i,j] <- sqrt(vcv2[i,i]+vcv2[j,j]+2*vcv2[i,j])
+
+summ <- fit$summaries
+
+res1 <- res[setdiff(grep('.BY',res$paramHeader,fixed=TRUE),grep('GEN.BY',res$paramHeader,fixed=TRUE)),]
+ldngs <- res1$est
+```
+
+
+
+# Data
+The factor analysis model was fit to POD survey responses to `r ncol(sb)` questions about six different aspects of campus accessibility:
+
+ - tech (`r length(grep('tech',names(sb)))` questions)
+ - atti (`r length(grep('atti',names(sb)))` questions)
+ - comm (`r length(grep('comm',names(sb)))` questions)
+ - phys (`r length(grep('phys',names(sb)))` questions)
+ - serv (`r length(grep('serv',names(sb)))` questions)
+ - scap (`r length(grep('scap',names(sb)))` questions)
+
+We excluded data from `r sum(survBin$big3)` students who reported attending one of the "big 3" universities, i.e. Gallaudet University, Rochester Institute of Technology, and California State University, Northridge, (and included `r sum(sum(dat$demo46=='#N/A'))` students who did not respond to the question), leaving a total sample size of `r nrow(sb)`.
+
+Survey questions were on a four-level Likert scale ("Not Likely," "Somewhat Likely," "Likely," "Extremely Likely").
+For analysis, we dichotomized responses, so that a zero corresponds to a response of "Not Likely" or "Somewhat Likely" and a 1 corresponds to "Likely" or "Extremely Likely".
+
+In a total of `r sum(is.na(sb))` cases (`r round(mean(is.na(sb))*100,1)`%), respondents left a survey question blank.
+
+# Model
+
+We used second-order confirmatory factor analysis (Rindskopf & Rose 1988) for binary indicators to model the data.
+Each survey item loaded onto a latent factor corresponding to the appropriate the accessibility aspect (as listed above), and those six latent factors loaded onto a general factor.
+Residual correlations between survey items and between latent factors were all assumed to be zero.
+
+The model was fit using Mplus version 7.4 (Muthen & Muthen, 2015), using the "Weighted Least Square Mean and VarianceAdjusted Estimator" (WLSMV) and and results were analyzed in `R`, via the `MplusAutomation` package (R Core Team, 2018; Hallquist & Wiley, 2018).
+
+
+# Results
+
+```{r check, include=FALSE}
+stopifnot(all(res1$pval[res1$pval<999]<0.05))
+stopifnot(all(p.adjust(na.omit(as.vector(2*pnorm(-abs(diff/diffSE)))),'holm')>0.05))
+```
+
+Model fit measures indicated good, if not perfect, fit: $\chi^2_{`r summ['ChiSqM_DF']`}=`r round(summ['ChiSqM_Value'])`$ (p<0.001); RMSEA=`r round(summ['RMSEA_Estimate'],3)` (90% CI: `r round(summ['RMSEA_90CI_LB'],3)`-`r round(summ['RMSEA_90CI_UB'],3)`); CFI=`r round(summ['CFI'],3)`.
+
+Every survey item loaded substantially and significantly onto its appropriate accessibility construct, suggesting that the items all relate appropriately to the underlying constructs of interest. Loadings for survey items on the factors representing aspects of accessibility ranged from `r round(min(ldngs),2)` to `r round(max(ldngs),2)`, and the corresponding p-values were all less than 0.001.
+
+The latent factors representing the six aspects of accessibility measured by the survey all loaded significantly onto the general factor, suggesting that each modeled aspect identifies an independent dimension of overall accessibility. These loadings are displayed in Table 1.
+Differences among the six loadings in Table 1 are not statistically significant; that is, there is no evidence at the $\alpha=0.05$ level that any of the six factors contributes more or less than the others to overall accessibility.
+
+
+```{r table1,results='asis'}
+capitalize <- function(chr) paste0(toupper(substr(chr,1,1)),tolower(substr(chr,2,nchar(chr))))
+
+options(knitr.kable.NA = '')
+
+data.frame(
+  Factor=capitalize(res2$param),
+  Loading=res2$est,
+  se=c(NA,res2$se[-1]),
+  pval=c(NA,res2$pval[-1])
+  )%>%kable()
+
+# flextable(tab1)
+```
+
+
+# Bibliography
+
+Muthen, L.K. and Muthen, B.O. (1998-2017).  Mplus User's Guide.  Eighth Edition. Los Angeles, CA: Muthen & Muthen
+
+ R Core Team (2018). R: A language and environment for statistical
+  computing. R Foundation for Statistical Computing, Vienna, Austria.
+  URL https://www.R-project.org/.
+
+Hallquist, M. N. & Wiley, J. F. (2018). MplusAutomation: An R Package
+  for Facilitating Large-Scale Latent Variable Analyses in Mplus
+  Structural Equation Modeling, 1-18. doi:
+  10.1080/10705511.2017.1402334.
+
+Rindskopf, D., & Rose, T. (1988). Some theory and applications of confirmatory second-order factor analysis. Multivariate behavioral research, 23(1), 51-67.
