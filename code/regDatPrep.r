@@ -1,5 +1,5 @@
 select <- dplyr::select
-source('cleanData.r')
+source('code/cleanData.r')
 
 big3 <- dat$What.school.or.training.program.are.you.currently.attending.%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
 naSchool <- dat$What.school.or.training.program.are.you.currently.attending.%in%c("#N/A","")
@@ -115,19 +115,21 @@ nad[nad=='NA'] <- NA
 nnn <- apply(nad,1,function(x) sum(is.na(x)))
 table(nnn)
 sapply(nad[which(nnn==7),],function(x) sum(is.na(x))) ##
-regDat <- regDat[nnn<8,]
+#regDat <- regDat[nnn<8,]
 
 select(regDat,deafDisabled,age,gender,`Interpreter Saturation`,white,deafHS,deafHSprog,Interpreters,
   `Speech-to-Text`,Notetaking,ExtendedTesttime)%>%
   map_dbl(~sum(is.na(.)))
 
-cat(
-  ' ----------------------------------\n',
-  'dropping ',nrow(dat)-nrow(regDat),' people due to too much missingness\n',
-  '----------------------------------\n'
-)
+## cat(
+##   ' ----------------------------------\n',
+##   'dropping ',nrow(dat)-nrow(regDat),' people due to too much missingness\n',
+##   '----------------------------------\n'
+## )
 
 names(regDat) <- gsub(' |-','',names(regDat))
+
+regDat[regDat=='NA'] <- NA
 
 impDat <- mice(regDat,m=20)
 

@@ -37,8 +37,8 @@ if(only%in%c('old','new')){
 
 
 
-big3 <- dat$What.school.or.training.program.are.you.currently.attending.%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
-naSchool <- dat$What.school.or.training.program.are.you.currently.attending.%in%c("#N/A","")
+#big3 <- dat$What.school.or.training.program.are.you.currently.attending.%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
+#naSch ool <- dat$What.school.or.training.program.are.you.currently.attending.%in%c("#N/A","")
 
 ## datBin <- dat
 ## for(nn in names(survBin)) datBin[[nn]] <- survBin[[nn]]
@@ -93,9 +93,14 @@ dat$ruralUrban <-
 
 
 ### location information from IP address
-## location <- db_ip(as.character(dat$pre2),'free')
-## save(location,file='ipAdressLocation.RData')
-## load('ipAdressLocation.RData')
+## location <- db_ip(as.character(dat$IP.Address),'free')
+## save(location,file='artifacts/ipAdressLocation.RData')
+## loc <- do.call('rbind',location[sapply(location,length)==4])
+## loc <- as.data.frame(loc,stringsAsFactors=FALSE)
+## instLoc <- dat%>%select(IP.Address,inst)%>%left_join(loc,by=c("IP.Address"="address"))
+
+## ##
+##load('ipAdressLocation.RData')
 
 ## for(i in which(sapply(location,length)<4))
 ##     location[[i]] <- rep(NA,4)

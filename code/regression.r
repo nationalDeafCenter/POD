@@ -3,7 +3,7 @@ library(mice)
 library(lme4)
 library(lmerTest)
 
-source('regDatPrep.r')
+source('code/regDatPrep.r')
 
 effByScale <- function(mod){
   re <- ranef(mod,condVar=TRUE)
@@ -58,7 +58,8 @@ proc1 <- function(varb,long){
 varbs <- c('deafDisabled',#'InterpreterSaturation',
     '`age/10`','white','gender',
     'deafHS+deafHSprog',
-    'Interpreters+SpeechtoText+Notetaking+ExtendedTesttime','(1|Ethnicity)')
+    'Interpreters+SpeechtoText+Notetaking+ExtendedTesttime',
+    'Community.College',
 
 transMIdat <- function(impDat,regDat){
   tran1 <- function(imp1){
@@ -126,25 +127,38 @@ mi <- function(varbs,impDat,subst=NULL){
   out
 }
 
+miRE <- function(varb,longDats,subst=NULL){
+  if(!is.null(subst))
+    longDats <- lapply(longDats,function(x) x[eval(parse(text=subst),x),])
+
+  form <- as.formula(paste0('rating~(1|id)+(1|scale)+(1|',varb,')+(1|',varb,':scale)'))
+  mods <- lapply(longDats,function(dd) lmer(form,data=dd))
+  re <- lapply(mods,ranef,condVar=TRUE)
+  effs <- do.call('cbind',lapply(re,function(rr) rr[[varb]]))
+  vars <- do.call('cbind',lapply(re,function(rr) attr(rr[[varb]],'postVar')[1,1,]))
+  eff <- rowMeans(effs)
+  SE <- sqrt(rowMeans(vars)+(1+1/length(longDats))*apply(effs,1,var))
+  T <- eff/SE
+  P <- 2*pnorm(-abs(T))
+
+  mainRes <- cbind(eff,SE,T,P)
+
+  effs2 <- do.call('cbind',lapply(re,function(rr) rr[[paste0(varb,':scale')]]))
+  vars2 <- do.call('cbind',lapply(re,function(rr) attr(rr[[paste0(varb,':scale')]],'postVar')[1,1,]))
+  eff2 <- rowMeans(effs2)
+  SE2 <- sqrt(rowMeans(vars2)+(1+1/length(longDats))*apply(effs2,1,var))
+  T2 <- eff2/SE2
+  P2 <- 2*pnorm(-abs(T2))
+
+  byScale <- cbind(eff2,SE2,T2,P2)
+
+  list(main=mainRes,byScale=byScale)
+}
+
+
+
 longDats <- transMIdat(impDat)
 
-eth <- mi('(1|Ethnicity)',impDat)
-
-
-modLessFull <- lmer(rating~(1|id)+deafDisabled+age+white+deafHS+deafHSprog+Interpreters+SpeechtoText+Notetaking+ExtendedTesttime+
-  (age+white|scale),
-   data=long)
-
-
-anovas <-
-  map(
-    res,
-    ~if('components'%in%names(attributes(.))) attr(.,'components')[[1]]$anova else attr(.,'anova')
-  )
-map(anovas,~c(which.min(.[['AIC']]),which.min(.[['BIC']]),.[['Pr(>Chisq)']][2]))
-
-
-summary(modSelect2 <- step(modLessFull))
 
 
 res <- mi(varbs,impDat)
@@ -215,6 +229,10 @@ modLessFull <- lapply(
   function(dd)
     lmer(rating~
            deafDisabled+deafHS+deafHSprog+Interpreters+SpeechtoText+Notetaking+ExtendedTesttime+
+
            (1|id)+(1|ageCat)+(1|Ethnicity)+(1|scale)+(1|Ethnicity:scale)+(1|ageCat:scale),
            data=dd)
   )
+
+
+

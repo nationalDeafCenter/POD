@@ -1,5 +1,8 @@
 library(tidyverse)
 library(reshape2)
+library(httr)
+library(jsonlite)
+
 #library(plotrix)
 varInf <- read.csv('data/varDesc725.csv',header=FALSE,stringsAsFactors=FALSE)
 dat <- read.csv('data/POD9-1-19.csv',stringsAsFactors=FALSE,skip=1)
@@ -231,6 +234,32 @@ for(vv in prefLangV)
 prefLang <- strsplit(names(dat)[prefLangV],'\\.{2,3}')
 names(dat)[prefLangV] <- paste0('Pref.',map_chr(prefLang,~paste0(.[1],'.',.[3])))
 
+
+### clean up institutition a little
+dat$inst <- dat$What.school.or.training.program.are.you.currently.attending.
+dat$inst[dat$inst%in%c('NA','#N/A','N/a','Na','nope')] <- NA
+
+### look up locations from IP addresses
+#ipInfo <- map(as.character(dat$IP.Address),~fromJSON(paste0("https://ipinfo.io/",.,'?token=36ab4f8eb7c36d')))
+## ipInfo <- map(1:nrow(dat),function(x) list())
+## for(i in 1:nrow(dat)){
+##   if(i%%10==0) cat(i,' ')
+##   if(i%%100==0) cat('\n')
+##   ipInfo[[i]] <- try(fromJSON(paste0("https://ipinfo.io/",as.character(dat$IP.Address[i]),'?token=36ab4f8eb7c36d')))
+## }
+## save(ipInfo,file='artifacts/ipInfo.RData')
+orgs <- map_chr(ipInfo,~ifelse(inherits(.,'try-error'),NA,.$org))
+
+print(sum(is.na(dat$inst)))
+for(i in 1:nrow(dat))
+  if(is.na(dat$inst[i]))
+    if(!inherits(ipInfo[[i]],'try-error'))
+      if(grepl('University|Institute|College',ipInfo[[i]]$org,ignore.case=TRUE))
+        dat$inst[i] <- gsub('A.*? (.+)','\\1',ipInfo[[i]]$org)
+print(sum(is.na(dat$inst)))
+
+
+
 write.csv(dat,'data/cleanedData.csv',row.names=FALSE)
 
 
@@ -242,7 +271,7 @@ sink('fullSummary.txt')
 print(summary(dat2))
 sink()
 
-big3 <- dat$What.school.or.training.program.are.you.currently.attending.%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge')
+big3 <- dat$inst%in%c('Gallaudet University','Rochester Institute Technology','Calif St Univ Northridge','Rochester Institute of Technology','RIT')
 
 sink('big3Summary.txt')
 print(summary(dat2[big3,]))
