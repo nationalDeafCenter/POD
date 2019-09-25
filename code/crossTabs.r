@@ -193,6 +193,17 @@ addVarbSimp <- function(varb){
     newTab
 }
 
+crossTabs <- add_row(crossTabs,Table=paste0('Disability (not mut. exclusive; ',sum(is.na(dis[,1])),' NAs = ',round(mean(is.na(dis[,1]))*100),'%)'))
+dis <- dis[!big3,]
+for(i in 1:ncol(dis))
+    crossTabs <- do.call('add_row',
+                          append(list(.data=crossTabs),
+                                 c(Subgroup=names(dis)[i],
+                                   n=sum(dis[[i]],na.rm=TRUE),
+                                   `%`=round(mean(dis[[i]],na.rm=TRUE)*100),
+                                   as.list(colMeans(summ[dis[[i]]==1,],na.rm=TRUE)))))
+
+
 crossTabs <- bind_rows(
   crossTabs,
   map_dfr(
@@ -200,13 +211,13 @@ crossTabs <- bind_rows(
        #'ruralUrban',
        #       'ruralUrbanIP',
        #'Institution.Type',
-       'Interpreter Saturation',
+       'deafDisabled',
+        'Interpreter Saturation',
        'Accrediation',
        'Community.College',
        'Institution.Size',
        'Ethnicity',
-       'Disability',
-       'deafDisabled',
+       #'Disability',
        'HStype',
        'MainstreamingHS',
        'age',
@@ -230,6 +241,7 @@ for(i in 1:ncol(acc))
                                    n=sum(acc[[i]],na.rm=TRUE),
                                    `%`=round(mean(acc[[i]],na.rm=TRUE)*100),
                                    as.list(colMeans(summ[acc[[i]]==1,],na.rm=TRUE)))))
+
 
 if(length(type)<ncol(dat)) type <- c(type,rep('demo',ncol(dat)-length(type)))
 summ3 <- as.data.frame(
@@ -258,7 +270,7 @@ crossTabs <- do.call('add_row',
 crossTabs <- add_row(crossTabs,
                      Table='Excludes Big 3 schools (except where noted)')
 crossTabs <- add_row(crossTabs,
-                     Table='"Accomodation" subgroups are NOT mutually exclusive')
+                     Table='"Accomodation" & "Disability" subgroups are NOT mutually exclusive')
 
 
 #demographics: age, not born in US, gender, HS/GED, preferred language (are there any left??)
@@ -304,3 +316,15 @@ if(only=='both'){
   write.csv(accCTp,'results/accCTp.csv')
   write.csv(accCTn,'results/accCTn.csv')
 }
+
+
+#################### disability cross tab
+catCT <- function(mat){
+  if(is.data.frame(mat)) mat <- as.matrix(mat)
+  out <- crossprod(mat)
+  totes <- diag(out)
+  multi <- t(mat)%*%(apply(mat,1,sum)>1)
+  rbind(n=totes,out,multi=as.vector(multi),only=diag(out)-as.vector(multi))
+}
+
+

@@ -119,25 +119,32 @@ names(dis) <-
 
 for(i in 1:ncol(dis)) dis[,i] <- as.numeric(!is.na(dis[,i]))
 
+dis$Other <- as.numeric(!is.na(dat$A.disability.not.listed))
 
-dat$Disability <- apply(select(dis,-Hearing),1,
-                       function(x) ifelse(sum(x)==0,'none (i.e. deaf non-disabled, excl. NAs)',
-                                          ifelse(sum(x)>1,'Multi',names(x)[which(x==1)])))
-ttt <- table(dat$Disability)
-dat$Disability[dat$Disability%in%c(names(ttt)[ttt<5],'A disability not listed')] <- 'Other'
+dat$deafDisabled <- rowSums(select(dis,-Hearing))>0
 
+dis$Multi <- as.numeric(rowSums(select(dis,-Hearing))>1)
 
+dis$deafOnly <- as.numeric(!dat$deafDisabled)
 
-dat$deafDisabled <- ifelse(startsWith(dat$Disability,'none'),'Deaf-Nondisabled (incl. NAs)','Deaf-Disabled')
-#                           ifelse(dat$Disability=='NA','NA',
+## #dat$Disability <- apply(select(dis,-Hearing),1,
+##                        function(x) ifelse(sum(x)==0,'none (i.e. deaf non-disabled, excl. NAs)',
+##                                           ifelse(sum(x)>1,'Multi',names(x)[which(x==1)])))
+## ttt <- table(dat$Disability)
+## dat$Disability[dat$Disability%in%c(names(ttt)[ttt<5],'A disability not listed')] <- 'Other'
 
-dat$Disability[
+dis[
   apply(
     select(dat,Do.not.Identify.w.a.disability:DisabiltyDescribe),
     1,
     function(x) all(is.na(x))
   )
-] <- NA
+,] <- NA
+
+
+
+
+#                           ifelse(dat$Disability=='NA','NA',
 
 
 
@@ -239,24 +246,24 @@ names(dat)[prefLangV] <- paste0('Pref.',map_chr(prefLang,~paste0(.[1],'.',.[3]))
 dat$inst <- dat$What.school.or.training.program.are.you.currently.attending.
 dat$inst[dat$inst%in%c('NA','#N/A','N/a','Na','nope')] <- NA
 
-### look up locations from IP addresses
-#ipInfo <- map(as.character(dat$IP.Address),~fromJSON(paste0("https://ipinfo.io/",.,'?token=36ab4f8eb7c36d')))
-## ipInfo <- map(1:nrow(dat),function(x) list())
-## for(i in 1:nrow(dat)){
-##   if(i%%10==0) cat(i,' ')
-##   if(i%%100==0) cat('\n')
-##   ipInfo[[i]] <- try(fromJSON(paste0("https://ipinfo.io/",as.character(dat$IP.Address[i]),'?token=36ab4f8eb7c36d')))
-## }
-## save(ipInfo,file='artifacts/ipInfo.RData')
-orgs <- map_chr(ipInfo,~ifelse(inherits(.,'try-error'),NA,.$org))
+## ### look up locations from IP addresses
+## #ipInfo <- map(as.character(dat$IP.Address),~fromJSON(paste0("https://ipinfo.io/",.,'?token=36ab4f8eb7c36d')))
+## ## ipInfo <- map(1:nrow(dat),function(x) list())
+## ## for(i in 1:nrow(dat)){
+## ##   if(i%%10==0) cat(i,' ')
+## ##   if(i%%100==0) cat('\n')
+## ##   ipInfo[[i]] <- try(fromJSON(paste0("https://ipinfo.io/",as.character(dat$IP.Address[i]),'?token=36ab4f8eb7c36d')))
+## ## }
+## ## save(ipInfo,file='artifacts/ipInfo.RData')
+## orgs <- map_chr(ipInfo,~ifelse(inherits(.,'try-error'),NA,.$org))
 
-print(sum(is.na(dat$inst)))
-for(i in 1:nrow(dat))
-  if(is.na(dat$inst[i]))
-    if(!inherits(ipInfo[[i]],'try-error'))
-      if(grepl('University|Institute|College',ipInfo[[i]]$org,ignore.case=TRUE))
-        dat$inst[i] <- gsub('A.*? (.+)','\\1',ipInfo[[i]]$org)
-print(sum(is.na(dat$inst)))
+## print(sum(is.na(dat$inst)))
+## for(i in 1:nrow(dat))
+##   if(is.na(dat$inst[i]))
+##     if(!inherits(ipInfo[[i]],'try-error'))
+##       if(grepl('University|Institute|College',ipInfo[[i]]$org,ignore.case=TRUE))
+##         dat$inst[i] <- gsub('A.*? (.+)','\\1',ipInfo[[i]]$org)
+## print(sum(is.na(dat$inst)))
 
 
 
