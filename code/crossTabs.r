@@ -1,6 +1,7 @@
 library(tidyverse)
 source('code/cleanData.r')
 library(ruca)
+library(zipcode)
 #library(rgeolocate)
 
 only <-
@@ -71,12 +72,14 @@ levsAb <- c('NL','SL','L','EL')
 
 summ <- list()
 resp <- list()
+cont <- list()
 type <- c(type,rep('demo',ncol(dat)-length(type)))
 for(cc in cats){
-    summ[[cc]] <- apply(dat[,type==cc],1,
-                        function(x) mean(x=='Extremely likely'|x=='Likely',na.rm=TRUE))
+  summ[[cc]] <- apply(dat[,type==cc],1,
+    function(x) mean(x=='Extremely likely'|x=='Likely',na.rm=TRUE))
+  cont[[cc]] <- rowMeans(surv[,c(type[1],type[type%in%cats])==cc],na.rm=TRUE)
   for(i in 1:4)
-      resp[[paste0(cc,'.',levsAb[i])]] <- apply(dat[,type==cc],1,
+    resp[[paste0(cc,'.',levsAb[i])]] <- apply(dat[,type==cc],1,
                                                 function(x) mean(x==levs[i],na.rm=TRUE))
 }
 
@@ -170,6 +173,14 @@ crossTabs <- tibble(Table='Overall',Subgroup='',n=nrow(dat),`%`=100)
 crossTabs <- cbind(crossTabs,matrix(colMeans(summ,na.rm=TRUE),nrow=1))
 names(crossTabs)[5:ncol(crossTabs)] <- names(summ)
 
+oneRow <- function(newTab,vv,memb)
+    do.call('add_row',
+            append(list(.data=newTab),
+                   c(Subgroup=vv,
+                     n=sum(memb,na.rm=TRUE),
+                     `%`=round(mean(memb,na.rm=TRUE)*100),
+                     as.list(colMeans(summ[memb,],na.rm=TRUE)))))
+
 addVarbSimp <- function(varb){
     newTab <- crossTabs[0,]
 
@@ -184,12 +195,7 @@ addVarbSimp <- function(varb){
     levs <- if(is.factor(vvv)) levels(vvv) else unique(na.omit(vvv))
 
     for(vv in levs)
-        newTab <- do.call('add_row',
-                             append(list(.data=newTab),
-                                    c(Subgroup=vv,
-                                      n=sum(vvv==vv,na.rm=TRUE),
-                                      `%`=round(mean(vvv==vv,na.rm=TRUE)*100),
-                                      as.list(colMeans(summ[vvv==vv,],na.rm=TRUE)))))
+        newTab <- oneRow(newTab,vv,vvv==vv)
     newTab
 }
 
@@ -210,7 +216,8 @@ crossTabs <- bind_rows(
       c(
        #'ruralUrban',
        #       'ruralUrbanIP',
-       #'Institution.Type',
+          'Institution.Type',
+          'College.Ranking',
        'deafDisabled',
         'Interpreter Saturation',
        'Accrediation',
@@ -241,6 +248,32 @@ for(i in 1:ncol(acc))
                                    n=sum(acc[[i]],na.rm=TRUE),
                                    `%`=round(mean(acc[[i]],na.rm=TRUE)*100),
                                    as.list(colMeans(summ[acc[[i]]==1,],na.rm=TRUE)))))
+
+### interpreters
+crossTabs <- add_row(crossTabs,Table='Accomodation: Interpreter')%>%
+  oneRow('Interpreting all',acc$Interpreters==1)%>%
+  oneRow('Interpreting + notetaking', acc$Interpreters&acc$Notetaking)%>%
+  oneRow('Interpreting + Extended time',acc$Interpreters&acc$ExtendedTesttime)%>%
+  oneRow('Interpreting + notetaking + extended time',acc$Interpreters&acc$ExtendedTesttime&acc$Notetaking)
+
+
+
+### speech to tex
+crossTabs <- add_row(crossTabs,Table='Accomodation: Speech-to-Text')%>%
+    oneRow('Speech to text all',acc$`Speech-to-Text`==1)%>%
+    oneRow('Speech to text + notetaking', acc$`Speech-to-Text`&acc$Notetaking)%>%
+    oneRow('Speech to text + Extended time',acc$`Speech-to-Text`&acc$ExtendedTesttime)%>%
+    oneRow('Speech to text + notetaking + extended time',acc$`Speech-to-Text`&acc$ExtendedTesttime&acc$Notetaking)
+
+
+### assistive listening
+crossTabs <- add_row(crossTabs,Table='Accomodation: Assistive Listening')%>%
+    oneRow('Assistive Listening all',acc$AssistiveListeningDevice==1)%>%
+    oneRow('Assistive Listening + notetaking', acc$AssistiveListeningDevice&acc$Notetaking)%>%
+    oneRow('Assistive Listening + Extended time',acc$AssistiveListeningDevice&acc$ExtendedTesttime)%>%
+    oneRow('Assistive Listening + notetaking + extended time',acc$AssistiveListeningDevice&acc$ExtendedTesttime&acc$Notetaking)
+
+
 
 
 if(length(type)<ncol(dat)) type <- c(type,rep('demo',ncol(dat)-length(type)))
@@ -328,3 +361,54 @@ catCT <- function(mat){
 }
 
 
+### visualize interpreter saturation distribution
+
+
+ggplot(dat,aes(Interpreter.Saturation))+geom_histogram(color='black',fill='grey',binwidth=10)+scale_x_continuous(breaks=seq(0,650,50))
+ggsave('graphics/interpreterSaturationHistogram.jpg')
+ggplot(dat,aes(Interpreter.Saturation))+geom_histogram(color='black',fill='grey',bins=62)+scale_x_continuous(breaks=c(1,3,10,30,50,100,300),trans='log10')
+ggsave('graphics/interpreterSaturationHistogramLog10.jpg')
+
+ggplot(dat[acc$Interpreters==1,],aes(Interpreter.Saturation))+geom_histogram(color='black',fill='grey',binwidth=10)+scale_x_continuous(breaks=seq(0,650,50))
+ggsave('graphics/interpreterSaturationHistogramGetInt.jpg')
+ggplot(dat[acc$Interpreters==1,],aes(Interpreter.Saturation))+geom_histogram(color='black',fill='grey',bins=62)+scale_x_continuous(breaks=c(1,3,10,30,50,100,300),trans='log10')
+ggsave('graphics/interpreterSaturationHistogramLog10GetInt.jpg')
+
+data(zipcode)
+txZip <- as.numeric(zipcode$zip[zipcode$state=='TX'])
+
+ggplot(filter(dat[acc$Interpreters==1,],!Zipcode%in%txZip),aes(Interpreter.Saturation))+geom_histogram(color='black',fill='grey',binwidth=10)+scale_x_continuous(breaks=seq(0,650,50))
+ggsave('graphics/interpreterSaturationHistogramNoTX.jpg')
+ggplot(filter(dat[acc$Interpreters==1,],!Zipcode%in%txZip),aes(Interpreter.Saturation))+geom_histogram(color='black',fill='grey',bins=62)+scale_x_continuous(breaks=c(1,3,5,10,30,50,100,130,300),trans='log10')
+ggsave('graphics/interpreterSaturationHistogramLog10NoTX.jpg')
+
+
+dat[acc$Interpreters==1,]%>%filter(!Zipcode%in%txZip)%>%group_by(inst)%>%summarize(is=mean(Interpreter.Saturation,na.rm=TRUE))%>%ggplot(aes(is))+geom_histogram(color='black',fill='grey',bins=62)+scale_x_continuous(breaks=c(1,3,5,10,30,50,100,130,300),trans='log10')
+
+
+source('code/regDatPrep.r')
+
+regDat$IntSatCont <- dat$Interpreter.Saturation
+regDat$Zipcode <- dat$Zipcode
+
+regDat%>%
+  filter(Interpreters==1)%>%
+  ggplot(aes(log(IntSatCont),serv))+geom_point()+geom_smooth()#+scale_x_continuous(breaks=c(1,3,5,10,30,50,100,130,300),trans='log10')
+ggsave('graphics/logIntSatVsServ.jpg')
+
+regDat%>%
+  filter(Interpreters==1,!Zipcode%in%txZip)%>%
+  ggplot(aes(log(IntSatCont),serv))+geom_point()+geom_smooth()#+scale_x_continuous(breaks=c(1,3,5,10,30,50,100,130,300),trans='log10')
+ggsave('graphics/logIntSatVsServNoTX.jpg')
+
+
+
+regDat%>%
+  filter(Interpreters==1,!Zipcode%in%txZip)%>%
+  ggplot(aes(IntSatCont,serv))+geom_point()+geom_smooth()#+scale_x_continuous(breaks=c(1,3,5,10,30,50,100,130,300),trans='log10')
+ggsave('graphics/IntSatVsServNoTX.jpg')
+
+regDat%>%
+  filter(Interpreters==1,!Zipcode%in%txZip)%>%
+  ggplot(aes(IntSatCont,serv))+geom_point()+geom_smooth()+xlim(0,300)#+scale_x_continuous(breaks=c(1,3,5,10,30,50,100,130,300),trans='log10')
+ggsave('graphics/IntSatVsServNoTX2.jpg')
