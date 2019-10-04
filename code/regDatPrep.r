@@ -76,6 +76,7 @@ for(vvv in preferredLanguageVarbs)
 ddd <- dat[,c(1,(max(grep('DA[0-9]+',names(dat)))+1):ncol(dat))] ## demographic variables I've messed with
 ddd$ageCat <- ddd$age
 ddd$age <- as.numeric(dat$Age) ## continuous
+ddd$IntSatCont <- dat$Interpreter.Saturation
 
 ddd[ddd=='NA'] <- NA
 
@@ -90,6 +91,8 @@ regDat$main[regDat$MainstreamingHS=='NA'] <- NA
 regDat$Community.College <- dat$Community.College
 regDat$Were.you.born.in.the.United.States. <- dat$Were.you.born.in.the.United.States.
 regDat$Institution.Type <- dat$Institution.Type
+
+
 
 ##
 hst <- data.frame(

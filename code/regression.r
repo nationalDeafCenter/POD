@@ -2,7 +2,7 @@ library(tidyverse)
 library(mice)
 library(lme4)
 library(lmerTest)
-
+library(texreg)
 source('code/regDatPrep.r')
 
 effByScale <- function(mod){
@@ -55,11 +55,11 @@ proc1 <- function(varb,long){
 }
 
 
-varbs <- c('deafDisabled',#'InterpreterSaturation',
-    '`age/10`','white','gender',
-    'deafHS+deafHSprog',
-    'Interpreters+SpeechtoText+Notetaking+ExtendedTesttime',
-    'Community.College',
+## varbs <- c('deafDisabled',#'InterpreterSaturation',
+##     '`age/10`','white','gender',
+##     'deafHS+deafHSprog',
+##     'Interpreters+SpeechtoText+Notetaking+ExtendedTesttime',
+##     'Community.College',
 
 transMIdat <- function(impDat,regDat){
   tran1 <- function(imp1){
@@ -88,14 +88,22 @@ miV <- function(vv,longDats){
   m <- length(longDats)
 
   mods <- map(longDats,~proc1(vv,.))
-  ests <- do.call('cbind',map(mods,~.[['Estimate']]))
-  ses <- do.call('cbind',map(mods,~.[['Std. Error']]))
-  Ubar <- rowMeans(ses^2)
-  B <- apply(ests,1,var)
-  if(all(B==0)) return(mods[[1]])
-  corr <- (1+1/impDat$m)
-  v0 <- mods[[1]][['df']]
-  vm <- ifelse(B==0,v0,(m-1)*(1+Ubar/(corr*B)))
+
+  getFixefTab(mods)
+
+}
+
+getFixefTab <- function(mods){
+    mods <- map(mods,~summary(.)$coef)
+    ests <- do.call('cbind',map(mods,~.[,'Estimate']))
+    ses <- do.call('cbind',map(mods,~.[,'Std. Error']))
+    m <- ncol(ests)
+    Ubar <- rowMeans(ses^2)
+    B <- apply(ests,1,var)
+    if(all(B==0)) return(mods[[1]])
+    corr <- (1+1/m)
+    v0 <- mods[[1]][,'df']
+    vm <- ifelse(B==0,v0,(m-1)*(1+Ubar/(corr*B)))
 
   out <- tibble(
     Estimate= rowMeans(ests),
@@ -106,9 +114,12 @@ miV <- function(vv,longDats){
   )
   out <- as.data.frame(out)
   rownames(out) <- rownames(mods[[1]])
-  attr(out,'components') <- map(mods,attributes)
+  #attr(out,'components') <- map(mods,attributes)
   out
 }
+
+
+
 
 mi <- function(varbs,impDat,subst=NULL){
   longDats <- transMIdat(impDat)
@@ -206,7 +217,7 @@ ethP2 <- 2*pnorm(-abs(ethT2))
 ## age by category
 ageMods <- lapply(longDats,function(dd) lmer(rating~(1|id)+(1|scale)+(1|ageCat)+(1|ageCat:scale),data=dd))
 reAge <- lapply(ageMods,ranef,condVar=TRUE)
-ageEffs <- do.call('cbind',lapply(reAge,function(rr) rr$ageCat))
+ageEffs <-
 ageVars <- do.call('cbind',lapply(reAge,function(rr) attr(rr$ageCat,'postVar')[1,1,]))
 ageEff <- rowMeans(ageEffs)
 ageSE <- sqrt(rowMeans(ageVars)+(1+1/length(longDats))*apply(ageEffs,1,var))
@@ -222,6 +233,52 @@ ageSE2 <- sqrt(rowMeans(ageVars2)+(1+1/length(longDats))*apply(ageEffs2,1,var))
 ageT2 <- ageEff2/ageSE2
 ageP2 <- 2*pnorm(-abs(ageT2))
 
+getRanefMod <- function(mods){
+    re <- lapply(mods,ranef,condVar=TRUE)
+    vvv <- names(re[[1]])
+    vvv <- vvv[-grep(':',vvv,fixed=TRUE)]
+    vvv <- vvv[vvv!='id']
+
+    res <- NULL
+    for(varb in vvv){
+        effs <- do.call('cbind',lapply(re,function(rr) rr[[varb]]))
+        vars <- do.call('cbind',lapply(re,function(rr) attr(rr[[varb]],'postVar')[1,1,]))
+        eff <- rowMeans(effs)
+        SE <- sqrt(rowMeans(vars)+(1+1/length(longDats))*apply(effs,1,var))
+        T <- eff/SE
+        P <- 2*pnorm(-abs(T))
+        newRes <- cbind(eff,SE,T,P)
+        rownames(newRes) <- paste0(varb,'::',rownames(newRes))
+        res <- rbind(res,newRes)
+    }
+    res <- as.data.frame(res)
+    names(res) <- c('Estimate', 'Std. Error', 't value'   ,    'Pr(>|t|)')
+    res
+}
+
+testRE <- function(mod,vv){
+  cnms <- mod@cnms
+  f2 <- '.~.'
+  for(v in grep(vv,names(cnms),value=TRUE,fixed=TRUE)){
+    if(all(cnms[[v]]=='(Intercept)')){
+      f2 <- paste0(f2,'-(1|',v,')')
+    } else f2 <- paste0(f2,'-(',paste(cnms[[v]][cnms[[v]]!='(Intercept)'],collapse='+'),'|',v,')')
+  }
+  m1 <- update(mod,data=model.frame(mod))
+  m2 <- update(mod,f2,data=model.frame(mod))
+  anova(m1,m2)
+}
+
+lrtMI <- function(mods,vv){
+  m <- length(mods)
+  aovs <- lapply(mods,testRE,vv=vv)
+  ws <- map_dbl(aovs,~.$Chisq[2])
+  k <- aovs[[1]][['Chi Df']][2]
+  a <- k*(m-1)
+  r3 <- (m+1)/a*mean(ws)
+
+  varComp <- function(mod){
+  vc <- VarCorr(mod)
 
 ### multiple
 modLessFull <- lapply(
@@ -229,10 +286,15 @@ modLessFull <- lapply(
   function(dd)
     lmer(rating~
            deafDisabled+deafHS+deafHSprog+Interpreters+SpeechtoText+Notetaking+ExtendedTesttime+
-
            (1|id)+(1|ageCat)+(1|Ethnicity)+(1|scale)+(1|Ethnicity:scale)+(1|ageCat:scale),
            data=dd)
   )
 
+ft <- getFixefTab(modLessFull)
+rt <- getRanefMod(modLessFull)
+mlf <- rbind(ft[,names(rt)],rt)
+
+mlfTr <- createTexreg(rownames(mlf),mlf[,'Estimate'],mlf[,'Std. Error'],mlf[,'Pr(>|t|)'])
 
 
+years <- lapply(longDats,function(dd) lmer(rating~What.year.did.you.first.attend.a.Deaf.School.+(1|id)+(1|scale),data=dd))
