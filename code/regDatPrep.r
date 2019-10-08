@@ -85,8 +85,8 @@ regDat <- bind_cols(cont,ddd)
 
 regDat$white <- startsWith(regDat$Ethnicity,'White')
 regDat$white[regDat$Ethnicity=='NA'] <- NA
-regDat$main <- regDat$MainstreamingHS=='mainstream only'
-regDat$main[regDat$MainstreamingHS=='NA'] <- NA
+regDat$mainstreamingHS <- regDat$MainstreamingHS=='mainstream only'
+regDat$mainstreamingHS[regDat$MainstreamingHS=='NA'] <- NA
 
 regDat$Community.College <- dat$Community.College
 regDat$Were.you.born.in.the.United.States. <- dat$Were.you.born.in.the.United.States.
@@ -134,5 +134,20 @@ names(regDat) <- gsub(' |-','',names(regDat))
 
 regDat[regDat=='NA'] <- NA
 
-impDat <- mice(regDat,m=20)
+for(i in 1:ncol(regDat))
+  if(is.character(regDat[[i]])|is.logical(regDat[[i]])|n_distinct(regDat[[i]])<6)
+    regDat[[i]] <- as.factor(regDat[[i]])
 
+idVars <- select(regDat,id,inst)
+regDat <- select(regDat,-id,-inst)
+## pred <- matrix(1,ncol(regDat),ncol(regDat))
+## rownames(pred) <- colnames(pred) <- colnames(regDat)
+## pred[,'id'] <- 0
+## pred['id',] <- 0
+## pred['inst',] <- pred[,'inst'] <- 0
+## diag(pred) <- 0
+
+impDat <- mice(regDat,m=20)#,method='rf')
+
+save(impDat,regDat,dat,acc,idVars,file='data/dataForRegression.RData')
+#load('impDat.Rdata')
