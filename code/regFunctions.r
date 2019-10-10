@@ -301,7 +301,7 @@ fullTrObj <- function(mods,intr=FALSE){
     ft <- summary(mods)$coef[,c('Estimate','Std. Error','t value','Pr(>|t|)')]
     rt <- reNoMI(mods,intr=intr)
   }
-  mlf <- rbind(rt,ft[,names(rt)])
+  mlf <- rbind(ft[1,names(rt)],rt,ft[-1,names(rt)])
   gof <- getGof(mods)
 
   createTexreg(rownames(mlf),mlf[,'Estimate'],mlf[,'Std. Error'],mlf[,'Pr(>|t|)'],gof.names=gof$gof.names,

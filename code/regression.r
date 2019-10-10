@@ -63,25 +63,25 @@ modLessFull <- lapply(
 ## mlfTr <- createTexreg(rownames(mlf),mlf[,'Estimate'],mlf[,'Std. Error'],mlf[,'Pr(>|t|)'],gof.names=gof$gof.names,
 ##   gof=gof$gof,gof.decimal=gof$gof.decimal)
 
-trObjs <- list()#lapply(
-for(mm in c('disMods','hsMods','accMods','ethMods','ageMods','modLessFull'))#,fullTrObj)
-  trObjs[[mm]] <- fullTrObj(get(mm))
-screenreg(trObjs)
 
 for(i in 1:length(longDats))
   longDats[[i]] <- full_join(longDats[[i]],select(dat,id,What.year.did.you.first.attend.a.Deaf.School.))
 
-regDat$What.year.did.you.first.attend.a.Deaf.School. <- dat$What.year.did.you.first.attend.a.Deaf.School.
+regDat$What.year.did.you.first.attend.a.Deaf.School. <- scale(dat$What.year.did.you.first.attend.a.Deaf.School.,center=TRUE,scale=FALSE)
 
 years <- lmer(rating~What.year.did.you.first.attend.a.Deaf.School.+(1|id)+(1|scale),data=gather(cbind(regDat,idVars),"scale","rating",tech:scap))
 
 intSat <-
-  lmer(rating~log(IntSatCont+1)+(1|id)+(log(IntSatCont+1)|scale),data=gather(cbind(regDat,idVars),"scale","rating",tech:scap),subset=Interpreters==1&IntSatCont<600)#)
+  lmer(rating~log(IntSatCont+1)+(1|id)+(log(IntSatCont+1)|scale),data=gather(cbind(regDat,idVars),"scale","rating",tech:scap),subset=Interpreters==1)#)
 
-intSat2 <- lapply(longDats,function(dd) lmer(rating~log(IntSatCont+1)+(1|id)+(log(IntSatCont+1)|scale),data=dd,subset=Interpreters==1))
+#intSat2 <- lapply(longDats,function(dd) lmer(rating~log(IntSatCont+1)+(1|id)+(log(IntSatCont+1)|scale),data=dd,subset=Interpreters==1))
 
 
-trObjs$deafSchoolEntryYear <- fullTrObj(years)
-trObjs$interpreterSat <- fullTrObj(intSat2)
+trObjs <- list()#lapply(
+for(mm in c('disMods','hsMods','accMods','ethMods','ageMods','modLessFull','years','intSat'))#,fullTrObj)
+  trObjs[[mm]] <- fullTrObj(get(mm))
+screenreg(trObjs)
 
-htmlreg(trObjs,file=paste0('results/regressions',Sys.Date(),'.html'),custom.model.names=c('disability','hs type','accomodations','ethnicity','age','combined','deaf school entry year','interpreter saturation'))
+
+htmlreg(trObjs,file=paste0('results/regressions',Sys.Date(),'.html'),custom.model.names=c('disability','hs type','accomodations','ethnicity','age','combined','deaf school entry year','interpreter saturation'),
+  caption='Regressors are centered so that (Intercept) can be interpreted as overall mean; categorical regressosors are models as random intercepts, and named as variable::category (so, e.g., scale::atti is the random intercept for observations of the atti scale); all models except "deaf school entry year" and "interpreter saturation" were fit using multiple imputation for missing values; "deaf school entry year" was fit to the subset of students with an entry year listed, and "interpreter saturation" was fit to the subset of students who reported using interpreters and who reported their institution')
