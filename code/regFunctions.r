@@ -65,7 +65,7 @@ transMIdat <- function(impDat,id=NULL){
         return(x)
       }))
     imp1$id <- if(is.null(id)) factor(1:nrow(imp1)) else id
-    imp1 <- imp1%>%mutate_if(is.numeric,~scale(.,center=TRUE,scale=FALSE))
+    imp1[,7:ncol(imp1)] <- imp1[,7:ncol(imp1)]%>%mutate_if(is.numeric,~scale(.,center=TRUE,scale=FALSE))
     long <- gather(imp1,"scale","rating",tech:scap)
     names(long) <- gsub(' |-','',names(long))
     long$`age/10` <- long$age/10
@@ -177,22 +177,53 @@ getRanefTab <- function(mods,intr=FALSE){
     }
     vvv <- vvv[vvv!='id']
 
-    res <- NULL
-    for(varb in vvv){
-        effs <- do.call('cbind',lapply(re,function(rr) rr[[varb]]))
-        vars <- do.call('cbind',lapply(re,function(rr) attr(rr[[varb]],'postVar')[1,1,]))
-        eff <- rowMeans(effs)
-        SE <- sqrt(rowMeans(vars)+(1+1/length(longDats))*apply(effs,1,var))
-        T <- eff/SE
-        P <- 2*pnorm(-abs(T))
-        newRes <- cbind(eff,SE,T,P)
-        rownames(newRes) <- paste0(varb,'::',rownames(newRes))
-        res <- rbind(res,newRes)
-    }
+    res <- do.call('rbind',lapply(vvv,getOneReSet,re,'(Intercept)'))
+
+    if(intr)
+      for(varb in vvv)
+        if(ncol(re[[1]][[varb]])>1)
+          res <- rbind(res,
+            do.call(
+              'rbind',
+              lapply(names(re[[1]][[varb]])[-1],
+                function(nn) getOneReSet(varb,re,nn)
+              )
+            )
+          )
+
     res <- as.data.frame(res)
     names(res) <- c('Estimate', 'Std. Error', 't value'   ,    'Pr(>|t|)')
     res
 }
+
+getOneReSet <- function(varb,re,cname='(Intercept)'){
+  effs <- do.call('cbind',lapply(re,function(rr) rr[[varb]][[cname]]))
+  vars <- do.call('cbind',lapply(re,function(rr) attr(rr[[varb]],'postVar')[1,1,]))
+  eff <- rowMeans(effs)
+  SE <- sqrt(rowMeans(vars)+(1+1/length(longDats))*apply(effs,1,var))
+  T <- eff/SE
+  P <- 2*pnorm(-abs(T))
+  newRes <- cbind(eff,SE,T,P)
+  rownames(newRes) <- rownames(re[[1]][[varb]])
+  rownames(newRes) <-
+    paste0(
+      if(cname=='(Intercept)') paste0(varb,':') else cname,
+      ':',rownames(newRes))
+
+  newRes
+}
+
+jcoefsNoMI <- function(mod,intr=FALSE){
+  res <- summary(mod)$coef[,c('Estimate','Std. Error','t value','Pr(>|t|)')]
+  re <- ranef(mod,condVar=TRUE)
+  vvv <- names(re)
+  if(!intr){
+    intrN <- grep(':',vvv,fixed=TRUE)
+    if(length(intrN)) vvv <- vvv[-intrN]
+  }
+  vvv <- vvv[vvv!='id']
+  for(varb in vvv){
+    newRes <-
 
 getGof <- function(mods,nums=FALSE,covs=FALSE){
   ext <- map(mods,extract)
@@ -251,3 +282,4 @@ fullTrObj <- function(mods){
 
 ##   varComp <- function(mod){
 ##   vc <- VarCorr(mod)
+
