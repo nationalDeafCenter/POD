@@ -213,8 +213,33 @@ getOneReSet <- function(varb,re,cname='(Intercept)'){
   newRes
 }
 
-jcoefsNoMI <- function(mod,intr=FALSE){
-  res <- summary(mod)$coef[,c('Estimate','Std. Error','t value','Pr(>|t|)')]
+
+reNoMI11 <- function(varb,cname,re)
+  `rownames<-`(
+        as.data.frame(
+          tibble(
+            Estimate=re[[varb]][[cname]],
+            `Std. Error`=sqrt(attr(re[[varb]],'postVar')[1,1,]),
+            `t value`=Estimate/`Std. Error`,
+            `Pr(>|t|)`=2*pnorm(-abs(`t value`))
+          )
+        ),
+        paste0(
+          if(cname=='(Intercept)') paste0(varb,':') else cname,
+          ':',rownames(re[[varb]])
+        )
+  )
+
+reNoMI1 <- function(varb,re,intr){
+  if(!intr|ncol(re[[varb]])==1)
+    return(reNoMI11(varb,'(Intercept)',re))
+  do.call(
+    'rbind',
+    lapply(names(re[[varb]]),function(nn) reNoMI11(varb,nn,re))
+  )
+}
+
+reNoMI <- function(mod,intr=FALSE){
   re <- ranef(mod,condVar=TRUE)
   vvv <- names(re)
   if(!intr){
@@ -222,11 +247,16 @@ jcoefsNoMI <- function(mod,intr=FALSE){
     if(length(intrN)) vvv <- vvv[-intrN]
   }
   vvv <- vvv[vvv!='id']
-  for(varb in vvv){
-    newRes <-
+  do.call(
+    'rbind',
+    lapply(vvv,reNoMI1,re=re,intr=intr)
+  )
 
-getGof <- function(mods,nums=FALSE,covs=FALSE){
-  ext <- map(mods,extract)
+
+}
+
+getGof <- function(mod,nums=FALSE,covs=FALSE){
+  ext <- if(is.list(mod)) map(mod,extract) else list(extract(mod))
   nms <- ext[[1]]@gof.names
   dec <- ext[[1]]@gof.decimal
   gof <- do.call('rbind',map(ext,~.@gof))
@@ -239,7 +269,6 @@ getGof <- function(mods,nums=FALSE,covs=FALSE){
     drp <- c(drp,setdiff(grep('Num. groups:',nms,fixed=TRUE),grep('id',nms)))
   if(!covs)
     drp <- c(drp,grep('Cov:',nms,fixed=TRUE))
-
   if(length(drp)){
     gof <- gof[-drp]
     dec <- dec[-drp]
@@ -247,6 +276,7 @@ getGof <- function(mods,nums=FALSE,covs=FALSE){
   }
 
   list(gof.names=nms,gof=gof,gof.decimal=dec)
+
 }
 
 testRE <- function(mod,vv){
@@ -262,9 +292,15 @@ testRE <- function(mod,vv){
   anova(m1,m2)
 }
 
-fullTrObj <- function(mods){
-  ft <- getFixefTab(mods)
-  rt <- getRanefTab(mods)
+fullTrObj <- function(mods,intr=FALSE){
+  if(is.list(mods)){
+    ft <- getFixefTab(mods)
+    rt <- getRanefTab(mods,intr=intr)
+  }
+  else{
+    ft <- summary(mods)$coef[,c('Estimate','Std. Error','t value','Pr(>|t|)')]
+    rt <- reNoMI(mods,intr=intr)
+  }
   mlf <- rbind(rt,ft[,names(rt)])
   gof <- getGof(mods)
 
