@@ -140,6 +140,9 @@ for(i in 1:ncol(regDat))
 
 idVars <- select(regDat,id,inst)
 regDat <- select(regDat,-id,-inst)
+
+regDat$female <- regDat$gender=='Female'
+regDat <- select(regDat,-gender)
 ## pred <- matrix(1,ncol(regDat),ncol(regDat))
 ## rownames(pred) <- colnames(pred) <- colnames(regDat)
 ## pred[,'id'] <- 0

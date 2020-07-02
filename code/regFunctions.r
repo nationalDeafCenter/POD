@@ -65,7 +65,7 @@ transMIdat <- function(impDat,id=NULL){
         return(x)
       }))
     imp1$id <- if(is.null(id)) factor(1:nrow(imp1)) else id
-    imp1[,7:ncol(imp1)] <- imp1[,7:ncol(imp1)]%>%mutate_if(is.numeric,~scale(.,center=TRUE,scale=FALSE))
+#    imp1[,7:ncol(imp1)] <- imp1[,7:ncol(imp1)]%>%mutate_if(is.numeric,~scale(.,center=TRUE,scale=FALSE))
     long <- gather(imp1,"scale","rating",tech:scap)
     names(long) <- gsub(' |-','',names(long))
     long$`age/10` <- long$age/10
@@ -298,7 +298,7 @@ fullTrObj <- function(mods,intr=FALSE){
     rt <- getRanefTab(mods,intr=intr)
   }
   else{
-    ft <- summary(mods)$coef[,c('Estimate','Std. Error','t value','Pr(>|t|)')]
+    ft <- as.data.frame(summary(mods)$coef[,c('Estimate','Std. Error','t value','Pr(>|t|)')])
     rt <- reNoMI(mods,intr=intr)
   }
   mlf <- rbind(ft[1,names(rt)],rt,ft[-1,names(rt)])
