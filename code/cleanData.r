@@ -133,6 +133,8 @@ dis$deafOnly <- as.numeric(!dat$deafDisabled)
 ## ttt <- table(dat$Disability)
 ## dat$Disability[dat$Disability%in%c(names(ttt)[ttt<5],'A disability not listed')] <- 'Other'
 
+
+### if all disability variables are NA, make the whole row of dis NA
 dis[
   apply(
     select(dat,Do.not.Identify.w.a.disability:DisabiltyDescribe),
